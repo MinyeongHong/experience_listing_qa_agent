@@ -1,0 +1,26 @@
+[project]
+name = "experience-listing-qa-agent"
+version = "0.1.0"
+description = "AI-powered QA agent for experience listings"
+readme = "README.md"
+authors = [
+    { name = "MinyeongHong", email = "78523467+MinyeongHong@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.128.8",
+    "uvicorn[standard]>=0.39.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.16.8",
+]
+
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+exclude = ["notebooks"]
