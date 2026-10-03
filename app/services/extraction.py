@@ -16,8 +16,15 @@ def extract_listing(raw_text: str) -> Listing:
     response = client.models.generate_content(
         model=model,
         contents=f"""
-Extract the experience listing information from the following text.
+        Extract the experience listing information from the text below.
 
+Extract only information explicitly present in the source text.
+Do not correct, reconcile, deduplicate, or resolve contradictions.
+If the same item appears in both inclusions and exclusions,
+preserve it in both fields exactly as stated.
+If information is missing, do not invent it.
+Preserve all explicitly stated duration values in duration_mentions,
+converted to minutes.
 Listing:
 {raw_text}
 """,

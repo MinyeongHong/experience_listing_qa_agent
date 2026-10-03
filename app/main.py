@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 
-from app.domain.models import AnalysisResult, Listing
+from app.domain.models import AnalysisRequest, AnalysisResult
 from app.services.analysis import analyze_listing
+from app.services.extraction import extract_listing
 
 app = FastAPI()
 
@@ -12,7 +13,8 @@ def health():
 
 
 @app.post("/analyses", response_model=AnalysisResult)
-def create_analysis(listing: Listing) -> AnalysisResult:
+def create_analysis(request: AnalysisRequest) -> AnalysisResult:
+    listing = extract_listing(request.text)
     issues = analyze_listing(listing)
 
     return AnalysisResult(

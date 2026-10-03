@@ -39,4 +39,22 @@ def analyze_listing(listing: Listing) -> list[Issue]:
                 )
             )
 
+    if listing.price == 0:
+        issues.append(
+            Issue(
+                code="ZERO_PRICE",
+                field="price",
+                message="Price is zero.",
+            )
+        )
+
+    if len(set(listing.duration_mentions)) > 1:
+        issues.append(
+            Issue(
+                code="DURATION_CONTRADICTION",
+                field="duration_minutes",
+                message="Multiple conflicting duration values were found.",
+            )
+        )
+
     return issues
