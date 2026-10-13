@@ -1,0 +1,250 @@
+{
+    "valid_listing": {
+      "source_file": "listings/valid_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Old Town Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 45,
+        "meeting_point": "La Rambla",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "expected_issue_codes": []
+    },
+  
+    "invalid_listing": {
+      "source_file": "listings/invalid_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Food Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": 35,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Lunch",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          120
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "CONTRADICTORY_INCLUSION"
+      ]
+    },
+  
+    "duration_conflict_listing": {
+      "source_file": "listings/duration_conflict_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Central District Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Guided walking itinerary",
+          "Historical and cultural commentary"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Transportation"
+        ],
+        "duration_mentions": [
+          120,
+          180
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "DURATION_CONTRADICTION"
+      ]
+    },
+  
+    "clean_repeated_duration_listing": {
+      "source_file": "listings/clean_repeated_duration_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Old City & Boulevard Walk",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Professional local guide",
+          "2-hour guided walking experience",
+          "Local recommendations"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Hotel transportation"
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT"
+      ]
+    },
+  
+    "zero_price_listing": {
+      "source_file": "listings/zero_price_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Historic Boulevard Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 0,
+        "meeting_point": "Plaça de Catalunya",
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Historical commentary",
+          "3-hour guided walking tour"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Hotel pickup"
+        ]
+      },
+      "expected_issue_codes": [
+        "ZERO_PRICE"
+      ]
+    },
+  
+    "vague_location_listing": {
+      "source_file": "listings/vague_location_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Hidden Streets Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": 30,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Walking tour"
+        ],
+        "exclusions": [
+          "Food and drinks"
+        ],
+        "duration_mentions": [
+          120
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT"
+      ]
+    },
+  
+    "descriptive_keywords_listing": {
+      "source_file": "listings/descriptive_keywords_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Architecture and History Walk",
+        "city": "Barcelona",
+        "duration_minutes": 90,
+        "price": 25,
+        "meeting_point": "Barcelona Cathedral",
+        "tags": [],
+        "inclusions": [
+          "Professional guide",
+          "Historical commentary"
+        ],
+        "exclusions": [
+          "Food",
+          "Transportation"
+        ],
+        "duration_mentions": [
+          90
+        ]
+      },
+      "expected_issue_codes": []
+    },
+  
+    "price_context_listing": {
+      "source_file": "listings/price_context_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Market Discovery Walk",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": "Mercat de Sant Antoni",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Market visit"
+        ],
+        "exclusions": [
+          "Food purchases",
+          "Hotel pickup"
+        ],
+        "duration_mentions": [
+          120
+        ]
+      },
+      "expected_issue_codes": []
+    },
+  
+    "equivalent_duration_listing": {
+      "source_file": "listings/equivalent_duration_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Waterfront Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": "Columbus Monument",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Historical commentary",
+          "120-minute guided walking experience"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Transportation"
+        ]
+      },
+      "expected_issue_codes": []
+    },
+  
+    "semantic_inclusion_conflict_listing": {
+      "source_file": "listings/semantic_inclusion_conflict_listing.txt",
+      "expected_fields": {
+        "title": "Barcelona Food and Culture Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 55,
+        "meeting_point": "Plaça Reial",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Food tasting"
+        ],
+        "exclusions": [
+          "Food tastings",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "expected_issue_codes": [
+        "CONTRADICTORY_INCLUSION"
+      ]
+    }
+  }

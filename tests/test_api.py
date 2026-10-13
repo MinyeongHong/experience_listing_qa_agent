@@ -2,7 +2,11 @@ from fastapi.testclient import TestClient
 
 from app.domain.models import Listing
 from app.main import app
-from app.services.analysis import analyze_listing
+from app.services.extraction import (
+    ExtractionError,
+    ExtractionTimeoutError,
+    RateLimitError,
+)
 
 client = TestClient(app)
 
@@ -41,83 +45,57 @@ def test_create_analysis(monkeypatch):
     assert data["issues"][1]["code"] == "CONTRADICTORY_INCLUSION"
 
 
-def test_different_inclusion_and_exclusion():
-    listing = Listing(
-        title="Barcelona Tour",
-        city="Barcelona",
-        duration_minutes=180,
-        price=45.0,
-        meeting_point="La Rambla",
-        inclusions=["Lunch"],
-        exclusions=["Drinks"],
+def test_create_analysis_returns_502_when_extraction_fails(monkeypatch):
+    def fake_extract_listing(raw_text: str):
+        raise ExtractionError("Gemini failed")
+
+    monkeypatch.setattr(
+        "app.main.extract_listing",
+        fake_extract_listing,
     )
 
-    issues = analyze_listing(listing)
-
-    assert len(issues) == 0
-
-
-def test_empty_inclusions_and_exclusions():
-    listing = Listing(
-        title="Barcelona Tour",
-        city="Barcelona",
-        duration_minutes=180,
-        price=45.0,
-        meeting_point="La Rambla",
-        inclusions=[],
-        exclusions=[],
+    response = client.post(
+        "/analyses",
+        json={"text": "some raw listing text"},
     )
 
-    issues = analyze_listing(listing)
+    assert response.status_code == 502
+    assert response.json() == {"detail": "Listing extraction service failed."}
 
-    assert len(issues) == 0
 
+def test_create_analysis_returns_503_when_rate_limited(monkeypatch):
+    def fake_extract_listing(raw_text: str):
+        raise RateLimitError("Gemini rate limit exceeded")
 
-def test_contradictory_inclusion_is_normalized():
-    listing = Listing(
-        title="Barcelona Tour",
-        city="Barcelona",
-        duration_minutes=180,
-        price=45.0,
-        meeting_point="La Rambla",
-        inclusions=["hotel pickup"],
-        exclusions=["  HOTEL PICKUP  "],
+    monkeypatch.setattr(
+        "app.main.extract_listing",
+        fake_extract_listing,
     )
 
-    issues = analyze_listing(listing)
-
-    assert len(issues) == 1
-    assert issues[0].code == "CONTRADICTORY_INCLUSION"
-
-
-def test_zero_price():
-    listing = Listing(
-        title="Barcelona Tour",
-        city="Barcelona",
-        duration_minutes=180,
-        price=0,
-        meeting_point="La Rambla",
-        inclusions=[],
-        exclusions=[],
+    response = client.post(
+        "/analyses",
+        json={"text": "some raw listing text"},
     )
 
-    issues = analyze_listing(listing)
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Listing extraction service is temporarily unavailable."
+    }
 
-    assert len(issues) == 1
-    assert issues[0].code == "ZERO_PRICE"
 
+def test_create_analysis_returns_504_when_extraction_times_out(monkeypatch):
+    def fake_extract_listing(raw_text: str):
+        raise ExtractionTimeoutError("Gemini request timed out")
 
-def test_positive_price():
-    listing = Listing(
-        title="Barcelona Tour",
-        city="Barcelona",
-        duration_minutes=180,
-        price=50,
-        meeting_point="La Rambla",
-        inclusions=[],
-        exclusions=[],
+    monkeypatch.setattr(
+        "app.main.extract_listing",
+        fake_extract_listing,
     )
 
-    issues = analyze_listing(listing)
+    response = client.post(
+        "/analyses",
+        json={"text": "some raw listing text"},
+    )
 
-    assert len(issues) == 0
+    assert response.status_code == 504
+    assert response.json() == {"detail": "Listing extraction service timed out."}
