@@ -27,6 +27,8 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
+markers = [
+    "integration: tests requiring a real database",
+]
 [tool.ruff]
 exclude = ["notebooks"]

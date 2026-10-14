@@ -1,6 +1,17 @@
-from fastapi import FastAPI, HTTPException
+from typing import Annotated
+from uuid import UUID
 
-from app.domain.models import AnalysisRequest, AnalysisResult
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
+from app.domain.models import (
+    AnalysisRequest,
+    AnalysisResponse,
+    AnalysisResult,
+    Issue,
+    Listing,
+)
 from app.services.analysis import analyze_listing
 from app.services.extraction import (
     ExtractionError,
@@ -8,17 +19,16 @@ from app.services.extraction import (
     RateLimitError,
     extract_listing,
 )
+from app.services.persistence import get_analysis, save_analysis
 
 app = FastAPI()
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/analyses", response_model=AnalysisResult)
-def create_analysis(request: AnalysisRequest) -> AnalysisResult:
+@app.post("/analyses", response_model=AnalysisResponse)
+def create_analysis(
+    request: AnalysisRequest,
+    session: Annotated[Session, Depends(get_db)],
+) -> AnalysisResponse:
     try:
         listing = extract_listing(request.text)
 
@@ -42,8 +52,43 @@ def create_analysis(request: AnalysisRequest) -> AnalysisResult:
 
     issues = analyze_listing(listing)
 
-    return AnalysisResult(
+    result = AnalysisResult(
         extracted_fields=listing,
         issues=issues,
         confidence=1.0,
+    )
+
+    record = save_analysis(session, request.text, result)
+
+    return AnalysisResponse(
+        id=record.id,
+        **result.model_dump(),
+    )
+
+
+@app.get("/analyses/{analysis_id}", response_model=AnalysisResponse)
+def read_analysis(
+    analysis_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+) -> AnalysisResponse:
+    record = get_analysis(session, analysis_id)
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis not found",
+        )
+
+    return AnalysisResponse(
+        id=record.id,
+        extracted_fields=Listing.model_validate(record.extracted_fields),
+        issues=[
+            Issue(
+                code=issue.code,
+                field=issue.field,
+                message=issue.message,
+            )
+            for issue in record.issues
+        ],
+        confidence=record.confidence,
     )

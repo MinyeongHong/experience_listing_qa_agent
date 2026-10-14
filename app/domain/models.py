@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -37,3 +39,7 @@ class AnalysisResult(BaseModel):
 
 class AnalysisRequest(BaseModel):
     text: str
+
+
+class AnalysisResponse(AnalysisResult):
+    id: UUID

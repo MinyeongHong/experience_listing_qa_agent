@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: listing-qa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: listingqa
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: listingqa
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listingqa -d listingqa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
