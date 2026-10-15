@@ -120,6 +120,9 @@
         "exclusions": [
           "Food and drinks",
           "Hotel pickup"
+        ],
+        "duration_mentions": [
+            180
         ]
       },
       "expected_issue_codes": [
@@ -217,8 +220,11 @@
         "exclusions": [
           "Food and drinks",
           "Transportation"
+        ],
+        "duration_mentions": [
+            120
         ]
-      },
+        },
       "expected_issue_codes": []
     },
   

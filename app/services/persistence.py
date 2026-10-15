@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AnalysisRecord, IssueRecord
@@ -26,9 +27,13 @@ def save_analysis(
         ],
     )
 
-    session.add(record)
-    session.commit()
-    session.refresh(record)
+    try:
+        session.add(record)
+        session.commit()
+        session.refresh(record)
+    except SQLAlchemyError:
+        session.rollback()
+        raise
 
     return record
 

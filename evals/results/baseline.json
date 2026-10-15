@@ -1,0 +1,315 @@
+{
+  "created_at": "2026-10-15T18:17:33.924236+00:00",
+  "total_cases": 5,
+  "evaluated_cases": 5,
+  "passed_cases": 4,
+  "summary": {
+    "matched_fields": 45,
+    "total_fields": 45,
+    "field_accuracy": 1.0,
+    "tp": 5,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.8333333333333334,
+    "f1": 0.9090909090909091
+  },
+  "cases": [
+    {
+      "case_name": "valid_listing",
+      "passed": true,
+      "expected_fields": {
+        "title": "Barcelona Old Town Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 45,
+        "meeting_point": "La Rambla",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "actual_fields": {
+        "title": "Barcelona Old Town Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 45.0,
+        "meeting_point": "La Rambla",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "expected_issue_codes": [],
+      "actual_issue_codes": [],
+      "field_mismatches": {},
+      "missed_issues": [],
+      "extra_issues": [],
+      "metrics": {
+        "matched_fields": 9,
+        "total_fields": 9,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      }
+    },
+    {
+      "case_name": "invalid_listing",
+      "passed": true,
+      "expected_fields": {
+        "title": "Barcelona Food Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": 35,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Lunch",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          120
+        ]
+      },
+      "actual_fields": {
+        "title": "Barcelona Food Walking Tour",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": 35.0,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Lunch",
+          "Hotel pickup"
+        ],
+        "exclusions": [
+          "Lunch",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          120
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "CONTRADICTORY_INCLUSION"
+      ],
+      "actual_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "CONTRADICTORY_INCLUSION"
+      ],
+      "field_mismatches": {},
+      "missed_issues": [],
+      "extra_issues": [],
+      "metrics": {
+        "matched_fields": 9,
+        "total_fields": 9,
+        "tp": 2,
+        "fp": 0,
+        "fn": 0
+      }
+    },
+    {
+      "case_name": "duration_conflict_listing",
+      "passed": true,
+      "expected_fields": {
+        "title": "Barcelona Central District Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Guided walking itinerary",
+          "Historical and cultural commentary"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Transportation"
+        ],
+        "duration_mentions": [
+          120,
+          180
+        ]
+      },
+      "actual_fields": {
+        "title": "Barcelona Central District Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 120,
+        "price": null,
+        "meeting_point": null,
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Guided walking itinerary",
+          "Historical and cultural commentary"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Transportation"
+        ],
+        "duration_mentions": [
+          120,
+          180
+        ]
+      },
+      "expected_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "DURATION_CONTRADICTION"
+      ],
+      "actual_issue_codes": [
+        "MISSING_MEETING_POINT",
+        "DURATION_CONTRADICTION"
+      ],
+      "field_mismatches": {},
+      "missed_issues": [],
+      "extra_issues": [],
+      "metrics": {
+        "matched_fields": 9,
+        "total_fields": 9,
+        "tp": 2,
+        "fp": 0,
+        "fn": 0
+      }
+    },
+    {
+      "case_name": "zero_price_listing",
+      "passed": true,
+      "expected_fields": {
+        "title": "Barcelona Historic Boulevard Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 0,
+        "meeting_point": "Plaça de Catalunya",
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Historical commentary",
+          "3-hour guided walking tour"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Hotel pickup"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "actual_fields": {
+        "title": "Barcelona Historic Boulevard Private Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 0.0,
+        "meeting_point": "Plaça de Catalunya",
+        "tags": [],
+        "inclusions": [
+          "Private local guide",
+          "Historical commentary",
+          "3-hour guided walking tour"
+        ],
+        "exclusions": [
+          "Food and drinks",
+          "Hotel pickup"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "expected_issue_codes": [
+        "ZERO_PRICE"
+      ],
+      "actual_issue_codes": [
+        "ZERO_PRICE"
+      ],
+      "field_mismatches": {},
+      "missed_issues": [],
+      "extra_issues": [],
+      "metrics": {
+        "matched_fields": 9,
+        "total_fields": 9,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0
+      }
+    },
+    {
+      "case_name": "semantic_inclusion_conflict_listing",
+      "passed": false,
+      "expected_fields": {
+        "title": "Barcelona Food and Culture Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 55,
+        "meeting_point": "Plaça Reial",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Food tasting"
+        ],
+        "exclusions": [
+          "Food tastings",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "actual_fields": {
+        "title": "Barcelona Food and Culture Walk",
+        "city": "Barcelona",
+        "duration_minutes": 180,
+        "price": 55.0,
+        "meeting_point": "Plaça Reial",
+        "tags": [],
+        "inclusions": [
+          "Local guide",
+          "Food tasting"
+        ],
+        "exclusions": [
+          "Food tastings",
+          "Drinks"
+        ],
+        "duration_mentions": [
+          180
+        ]
+      },
+      "expected_issue_codes": [
+        "CONTRADICTORY_INCLUSION"
+      ],
+      "actual_issue_codes": [],
+      "field_mismatches": {},
+      "missed_issues": [
+        "CONTRADICTORY_INCLUSION"
+      ],
+      "extra_issues": [],
+      "metrics": {
+        "matched_fields": 9,
+        "total_fields": 9,
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      }
+    }
+  ]
+}
