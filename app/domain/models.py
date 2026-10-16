@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -43,3 +44,21 @@ class AnalysisRequest(BaseModel):
 
 class AnalysisResponse(AnalysisResult):
     id: UUID
+
+
+class ReviewCandidate(BaseModel):
+    code: str
+    field: str
+    included_item: str
+    excluded_item: str
+    reason: str
+    status: Literal["pending", "confirmed", "dismissed"] = "pending"
+
+
+class SemanticDecision(BaseModel):
+    verdict: Literal[
+        "possible_conflict",
+        "no_conflict",
+        "uncertain",
+    ]
+    reason: str = Field(min_length=1)
