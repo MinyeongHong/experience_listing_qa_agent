@@ -1,0 +1,32 @@
+[
+    {
+      "id": "plural_conflict",
+      "included": "Food tasting",
+      "excluded": "Food tastings",
+      "expected_review": true
+    },
+    {
+      "id": "exact_match",
+      "included": "Lunch",
+      "excluded": "Lunch",
+      "expected_review": false
+    },
+    {
+      "id": "different_food_services",
+      "included": "Food tasting",
+      "excluded": "Full meal",
+      "expected_review": false
+    },
+    {
+      "id": "transport_scope",
+      "included": "Hotel pickup",
+      "excluded": "Transportation",
+      "expected_review": true
+    },
+    {
+      "id": "unrelated_services",
+      "included": "Museum admission",
+      "excluded": "Hotel accommodation",
+      "expected_review": false
+    }
+  ]
