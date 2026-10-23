@@ -12,13 +12,23 @@ from app.services.review import SemanticClassificationError
 from evals.semantic_metrics import calculate_metrics
 
 
+def count_errors(results: list[dict]) -> int:
+    count = 0
+
+    for result in results:
+        if result.get("status", "success") == "error":
+            count += 1
+
+    return count
+
+
 def print_metrics(
     mode: str,
     metrics: dict,
     evaluated: int,
 ) -> None:
 
-    print(f"\n=== Semantic Review Evaluation {mode} ===")
+    print(f"\n=== Semantic Review Evaluation ({mode}) ===")
     print(f"TP={metrics['tp']}, FP={metrics['fp']}")
     print(f"FN={metrics['fn']}, TN={metrics['tn']}")
     print(f"Precision={metrics['precision']:.2%}")
@@ -46,11 +56,19 @@ def main():
 
         metrics = calculate_metrics(evaluation_results)
 
+        evaluated_sum = sum(
+            1
+            for result in evaluation_results
+            if result.get("status", "success") == "success"
+        )
+
         print_metrics(
             mode="Replay",
             metrics=metrics,
-            evaluated=len(evaluation_results),
+            evaluated=evaluated_sum,
         )
+
+        print(f"Errors={count_errors(evaluation_results)}")
 
         return
 
@@ -75,7 +93,6 @@ def main():
     )
 
     try:
-        errors = 0
         skipped = 0
         evaluation_results = []
 
@@ -97,8 +114,17 @@ def main():
                 predicted_review = decision.verdict != "no_conflict"
 
             except SemanticClassificationError as exc:
-                errors += 1
+                evaluation_results.append(
+                    {
+                        "id": case["id"],
+                        "status": "error",
+                        "expected_review": case["expected_review"],
+                        "error": str(exc),
+                    }
+                )
+
                 print(f"{case['id']}: ERROR ({exc})")
+
                 continue
 
             expected_review = case["expected_review"]
@@ -106,6 +132,7 @@ def main():
             evaluation_results.append(
                 {
                     "id": case["id"],
+                    "status": "success",
                     "expected_review": expected_review,
                     "predicted_review": predicted_review,
                     "verdict": decision.verdict,
@@ -122,13 +149,19 @@ def main():
 
         metrics = calculate_metrics(evaluation_results)
 
+        evaluated_sum = sum(
+            1
+            for result in evaluation_results
+            if result.get("status", "success") == "success"
+        )
+
         print_metrics(
             mode="Live",
             metrics=metrics,
-            evaluated=len(evaluation_results),
+            evaluated=evaluated_sum,
         )
 
-        print(f"Errors={errors}")
+        print(f"Errors={count_errors(evaluation_results)}")
         print(f"Skipped={skipped}")
 
         output_path = Path("evals/semantic_results.json")

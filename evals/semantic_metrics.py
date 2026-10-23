@@ -2,6 +2,9 @@ def calculate_metrics(results: list[dict]) -> dict:
     tp = fp = fn = tn = 0
 
     for result in results:
+        if result.get("status", "success") != "success":
+            continue
+
         expected = result["expected_review"]
         predicted = result["predicted_review"]
 
