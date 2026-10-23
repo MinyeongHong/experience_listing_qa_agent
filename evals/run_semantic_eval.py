@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 from pathlib import Path
@@ -8,9 +9,51 @@ from google.genai import types
 
 from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError
+from evals.semantic_metrics import calculate_metrics
+
+
+def print_metrics(
+    mode: str,
+    metrics: dict,
+    evaluated: int,
+) -> None:
+
+    print(f"\n=== Semantic Review Evaluation {mode} ===")
+    print(f"TP={metrics['tp']}, FP={metrics['fp']}")
+    print(f"FN={metrics['fn']}, TN={metrics['tn']}")
+    print(f"Precision={metrics['precision']:.2%}")
+    print(f"Recall={metrics['recall']:.2%}")
+    print(f"F1={metrics['f1']:.2%}")
+    print(f"Evaluated={evaluated}")
 
 
 def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--replay", action="store_true")
+    parser.add_argument(
+        "--results-path",
+        type=Path,
+        default=Path("evals/semantic_results.json"),
+    )
+
+    args = parser.parse_args()
+
+    if args.replay:
+        results_path = args.results_path
+
+        evaluation_results = json.loads(results_path.read_text(encoding="utf-8"))
+
+        metrics = calculate_metrics(evaluation_results)
+
+        print_metrics(
+            mode="Replay",
+            metrics=metrics,
+            evaluated=len(evaluation_results),
+        )
+
+        return
+
     load_dotenv()
 
     cases = json.loads(Path("evals/semantic_cases.json").read_text(encoding="utf-8"))
@@ -31,13 +74,12 @@ def main():
         model=model,
     )
 
-    tp = fp = fn = tn = 0
-    errors = 0
-    skipped = 0
-
     try:
+        errors = 0
+        skipped = 0
+        evaluation_results = []
+
         for case in cases:
-            # Exact matches are handled by deterministic rules.
             if (
                 case["included"].strip().casefold()
                 == case["excluded"].strip().casefold()
@@ -61,14 +103,15 @@ def main():
 
             expected_review = case["expected_review"]
 
-            if predicted_review and expected_review:
-                tp += 1
-            elif predicted_review and not expected_review:
-                fp += 1
-            elif not predicted_review and expected_review:
-                fn += 1
-            else:
-                tn += 1
+            evaluation_results.append(
+                {
+                    "id": case["id"],
+                    "expected_review": expected_review,
+                    "predicted_review": predicted_review,
+                    "verdict": decision.verdict,
+                    "reason": decision.reason,
+                }
+            )
 
             print(
                 f"{case['id']}: "
@@ -77,18 +120,29 @@ def main():
                 f"verdict={decision.verdict}"
             )
 
-        precision = tp / (tp + fp) if tp + fp else 0
-        recall = tp / (tp + fn) if tp + fn else 0
-        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0
+        metrics = calculate_metrics(evaluation_results)
 
-        print("\n=== Semantic Review Evaluation ===")
-        print(f"TP={tp}, FP={fp}, FN={fn}, TN={tn}")
+        print_metrics(
+            mode="Live",
+            metrics=metrics,
+            evaluated=len(evaluation_results),
+        )
+
         print(f"Errors={errors}")
-        print(f"Precision={precision:.2%}")
-        print(f"Recall={recall:.2%}")
-        print(f"F1={f1:.2%}")
-        print(f"Evaluated={tp + fp + fn + tn}")
         print(f"Skipped={skipped}")
+
+        output_path = Path("evals/semantic_results.json")
+
+        output_path.write_text(
+            json.dumps(
+                evaluation_results,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        print(f"Results saved to {output_path}")
 
     finally:
         client.close()
