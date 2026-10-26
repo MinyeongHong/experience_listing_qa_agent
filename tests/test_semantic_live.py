@@ -2,8 +2,10 @@ import json
 import sys
 from unittest.mock import MagicMock
 
+from app.domain.models import SemanticDecision
 from app.services.review import SemanticClassificationError
 from evals import run_semantic_eval
+from evals.models import SemanticEvalError, SemanticEvalSuccess, parse_eval_results
 
 
 class FakeClassifier:
@@ -12,6 +14,17 @@ class FakeClassifier:
 
     def classify(self, included_item, excluded_item):
         raise SemanticClassificationError("Simulated Gemini failure")
+
+
+class FakeSuccessClassifier:
+    def __init__(self, client, model):
+        pass
+
+    def classify(self, included_item, excluded_item):
+        return SemanticDecision(
+            verdict="possible_conflict",
+            reason="Overlapping services",
+        )
 
 
 def test_live_records_classification_errors(
@@ -80,5 +93,75 @@ def test_live_records_classification_errors(
     assert saved_results[0]["id"] == "failure_case"
     assert saved_results[0]["error"] == "Simulated Gemini failure"
 
+    parsed_results = parse_eval_results(saved_results)
+    assert isinstance(parsed_results[0], SemanticEvalError)
+
     # 8. Gemini 클라이언트 정리 확인
+    fake_client.close.assert_called_once()
+
+
+def test_live_records_success(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    fake_client = MagicMock()
+
+    monkeypatch.setattr(
+        run_semantic_eval.genai,
+        "Client",
+        lambda **kwargs: fake_client,
+    )
+
+    monkeypatch.setattr(
+        run_semantic_eval,
+        "GeminiSemanticClassifier",
+        FakeSuccessClassifier,
+    )
+
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-api-key")
+    monkeypatch.setenv("GEMINI_MODEL", "fake-model")
+    monkeypatch.setattr(sys, "argv", ["run_semantic_eval"])
+
+    monkeypatch.chdir(tmp_path)
+
+    cases = [
+        {
+            "id": "success_case",
+            "included": "Lunch",
+            "excluded": "Meals",
+            "expected_review": True,
+        }
+    ]
+
+    evals_dir = tmp_path / "evals"
+    evals_dir.mkdir(parents=True, exist_ok=True)
+
+    cases_path = evals_dir / "semantic_cases.json"
+    cases_path.write_text(
+        json.dumps(cases),
+        encoding="utf-8",
+    )
+
+    run_semantic_eval.main()
+
+    output = capsys.readouterr().out
+
+    assert "Errors=0" in output
+    assert "Evaluated=1" in output
+
+    results_path = evals_dir / "semantic_results.json"
+
+    saved_results = json.loads(results_path.read_text(encoding="utf-8"))
+
+    assert len(saved_results) == 1
+    assert saved_results[0]["status"] == "success"
+    assert saved_results[0]["predicted_review"] is True
+    assert saved_results[0]["verdict"] == "possible_conflict"
+
+    parsed_results = parse_eval_results(saved_results)
+
+    assert isinstance(parsed_results[0], SemanticEvalSuccess)
+    assert parsed_results[0].reason == "Overlapping services"
+
     fake_client.close.assert_called_once()

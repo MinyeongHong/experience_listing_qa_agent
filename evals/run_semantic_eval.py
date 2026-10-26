@@ -9,14 +9,20 @@ from google.genai import types
 
 from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError
+from evals.models import (
+    SemanticEvalError,
+    SemanticEvalResult,
+    SemanticEvalSuccess,
+    parse_eval_results,
+)
 from evals.semantic_metrics import calculate_metrics
 
 
-def count_errors(results: list[dict]) -> int:
+def count_errors(results: list[SemanticEvalResult]) -> int:
     count = 0
 
     for result in results:
-        if result.get("status", "success") == "error":
+        if isinstance(result, SemanticEvalError):
             count += 1
 
     return count
@@ -52,14 +58,16 @@ def main():
     if args.replay:
         results_path = args.results_path
 
-        evaluation_results = json.loads(results_path.read_text(encoding="utf-8"))
+        raw_results = json.loads(results_path.read_text(encoding="utf-8"))
+
+        evaluation_results = parse_eval_results(raw_results)
 
         metrics = calculate_metrics(evaluation_results)
 
         evaluated_sum = sum(
             1
             for result in evaluation_results
-            if result.get("status", "success") == "success"
+            if isinstance(result, SemanticEvalSuccess)
         )
 
         print_metrics(
@@ -94,7 +102,7 @@ def main():
 
     try:
         skipped = 0
-        evaluation_results = []
+        evaluation_results: list[SemanticEvalResult] = []
 
         for case in cases:
             if (
@@ -115,12 +123,11 @@ def main():
 
             except SemanticClassificationError as exc:
                 evaluation_results.append(
-                    {
-                        "id": case["id"],
-                        "status": "error",
-                        "expected_review": case["expected_review"],
-                        "error": str(exc),
-                    }
+                    SemanticEvalError(
+                        id=case["id"],
+                        expected_review=case["expected_review"],
+                        error=str(exc),
+                    )
                 )
 
                 print(f"{case['id']}: ERROR ({exc})")
@@ -130,14 +137,13 @@ def main():
             expected_review = case["expected_review"]
 
             evaluation_results.append(
-                {
-                    "id": case["id"],
-                    "status": "success",
-                    "expected_review": expected_review,
-                    "predicted_review": predicted_review,
-                    "verdict": decision.verdict,
-                    "reason": decision.reason,
-                }
+                SemanticEvalSuccess(
+                    id=case["id"],
+                    expected_review=expected_review,
+                    predicted_review=predicted_review,
+                    verdict=decision.verdict,
+                    reason=decision.reason,
+                )
             )
 
             print(
@@ -152,7 +158,7 @@ def main():
         evaluated_sum = sum(
             1
             for result in evaluation_results
-            if result.get("status", "success") == "success"
+            if isinstance(result, SemanticEvalSuccess)
         )
 
         print_metrics(
@@ -168,7 +174,7 @@ def main():
 
         output_path.write_text(
             json.dumps(
-                evaluation_results,
+                [result.model_dump() for result in evaluation_results],
                 ensure_ascii=False,
                 indent=2,
             ),

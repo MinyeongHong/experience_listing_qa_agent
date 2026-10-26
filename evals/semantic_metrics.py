@@ -1,12 +1,15 @@
-def calculate_metrics(results: list[dict]) -> dict:
+from evals.models import SemanticEvalError, SemanticEvalResult
+
+
+def calculate_metrics(results: list[SemanticEvalResult]) -> dict:
     tp = fp = fn = tn = 0
 
     for result in results:
-        if result.get("status", "success") != "success":
+        if isinstance(result, SemanticEvalError):
             continue
 
-        expected = result["expected_review"]
-        predicted = result["predicted_review"]
+        expected = result.expected_review
+        predicted = result.predicted_review
 
         if expected and predicted:
             tp += 1

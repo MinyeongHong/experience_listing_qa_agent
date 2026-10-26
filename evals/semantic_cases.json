@@ -28,5 +28,23 @@
       "included": "Museum admission",
       "excluded": "Hotel accommodation",
       "expected_review": false
+    },
+    {
+      "id": "meal_scope",
+      "included": "Lunch",
+      "excluded": "Meals",
+      "expected_review": true
+    },
+    {
+      "id": "meal_vs_alcohol",
+      "included": "Full meal",
+      "excluded": "Alcoholic drinks",
+      "expected_review": false
+    },
+    {
+      "id": "guide_vs_gratuities",
+      "included": "Guided tour",
+      "excluded": "Tips and gratuities",
+      "expected_review": false
     }
   ]
