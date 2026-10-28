@@ -9,6 +9,7 @@ from google.genai import types
 
 from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError
+from evals.error_analysis import print_error_analysis
 from evals.models import (
     SemanticEvalError,
     SemanticEvalResult,
@@ -61,6 +62,8 @@ def main():
         raw_results = json.loads(results_path.read_text(encoding="utf-8"))
 
         evaluation_results = parse_eval_results(raw_results)
+
+        print_error_analysis(evaluation_results)
 
         metrics = calculate_metrics(evaluation_results)
 
@@ -152,6 +155,8 @@ def main():
                 f"predicted={predicted_review}, "
                 f"verdict={decision.verdict}"
             )
+
+        print_error_analysis(evaluation_results)
 
         metrics = calculate_metrics(evaluation_results)
 
