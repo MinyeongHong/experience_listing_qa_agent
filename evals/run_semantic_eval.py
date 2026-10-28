@@ -7,15 +7,19 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from app.domain.models import SemanticDecision
 from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError
 from evals.error_analysis import print_error_analysis
 from evals.models import (
+    SemanticEvalCase,
     SemanticEvalError,
     SemanticEvalResult,
     SemanticEvalSuccess,
+    parse_eval_cases,
     parse_eval_results,
 )
+from evals.report import build_eval_report
 from evals.semantic_metrics import calculate_metrics
 
 
@@ -59,15 +63,15 @@ def main():
     if args.replay:
         results_path = args.results_path
 
-        raw_results = json.loads(results_path.read_text(encoding="utf-8"))
+        raw_results: list[dict] = json.loads(results_path.read_text(encoding="utf-8"))
 
-        evaluation_results = parse_eval_results(raw_results)
+        evaluation_results: list[SemanticEvalResult] = parse_eval_results(raw_results)
 
         print_error_analysis(evaluation_results)
 
-        metrics = calculate_metrics(evaluation_results)
+        metrics: dict = calculate_metrics(evaluation_results)
 
-        evaluated_sum = sum(
+        evaluated_sum: int = sum(
             1
             for result in evaluation_results
             if isinstance(result, SemanticEvalSuccess)
@@ -85,7 +89,11 @@ def main():
 
     load_dotenv()
 
-    cases = json.loads(Path("evals/semantic_cases.json").read_text(encoding="utf-8"))
+    raw_cases = json.loads(
+        Path("evals/semantic_cases.json").read_text(encoding="utf-8")
+    )
+
+    cases: list[SemanticEvalCase] = parse_eval_cases(raw_cases)
 
     api_key = os.getenv("GEMINI_API_KEY")
     model = os.getenv("GEMINI_MODEL")
@@ -108,18 +116,15 @@ def main():
         evaluation_results: list[SemanticEvalResult] = []
 
         for case in cases:
-            if (
-                case["included"].strip().casefold()
-                == case["excluded"].strip().casefold()
-            ):
+            if case.included.strip().casefold() == case.excluded.strip().casefold():
                 skipped += 1
-                print(f"{case['id']}: SKIPPED (deterministic rule)")
+                print(f"{case.id}: SKIPPED (deterministic rule)")
                 continue
 
             try:
-                decision = classifier.classify(
-                    included_item=case["included"],
-                    excluded_item=case["excluded"],
+                decision: SemanticDecision = classifier.classify(
+                    included_item=case.included,
+                    excluded_item=case.excluded,
                 )
 
                 predicted_review = decision.verdict != "no_conflict"
@@ -127,22 +132,22 @@ def main():
             except SemanticClassificationError as exc:
                 evaluation_results.append(
                     SemanticEvalError(
-                        id=case["id"],
-                        expected_review=case["expected_review"],
+                        id=case.id,
+                        expected_review=case.expected_review,
                         error=str(exc),
                     )
                 )
 
-                print(f"{case['id']}: ERROR ({exc})")
+                print(f"{case.id}: ERROR ({exc})")
 
                 continue
 
-            expected_review = case["expected_review"]
+            expected_review = case.expected_review
 
             evaluation_results.append(
                 SemanticEvalSuccess(
-                    id=case["id"],
-                    expected_review=expected_review,
+                    id=case.id,
+                    expected_review=case.expected_review,
                     predicted_review=predicted_review,
                     verdict=decision.verdict,
                     reason=decision.reason,
@@ -150,7 +155,7 @@ def main():
             )
 
             print(
-                f"{case['id']}: "
+                f"{case.id}: "
                 f"expected={expected_review}, "
                 f"predicted={predicted_review}, "
                 f"verdict={decision.verdict}"
@@ -187,6 +192,21 @@ def main():
         )
 
         print(f"Results saved to {output_path}")
+
+        report = build_eval_report(evaluation_results)
+
+        report_path = Path("evals/semantic_report.json")
+
+        report_path.write_text(
+            json.dumps(
+                report,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        print(f"Reports saved to {report_path}")
 
     finally:
         client.close()

@@ -1,6 +1,7 @@
 from evals.error_analysis import (
     count_false_positives,
     find_mismatches,
+    get_error_analysis,
     print_error_analysis,
 )
 from evals.models import (
@@ -98,3 +99,36 @@ def test_print_error_analysis(capsys):
 
     assert "case_fp: false_positive" in output
     assert "case_fn: false_negative" in output
+
+
+def test_print_error_analysis_with_no_mismatches(capsys):
+    print_error_analysis([])
+
+    output = capsys.readouterr().out
+
+    assert "No mismatches found." in output
+
+
+def test_get_error_analysis():
+    results = [
+        SemanticEvalSuccess(
+            id="case_fp",
+            expected_review=False,
+            predicted_review=True,
+            verdict="possible_conflict",
+            reason="Incorrectly flagged",
+        ),
+        SemanticEvalSuccess(
+            id="case_fn",
+            expected_review=True,
+            predicted_review=False,
+            verdict="no_conflict",
+            reason="Missed conflict",
+        ),
+    ]
+
+    analysis = get_error_analysis(results)
+
+    assert len(analysis) == 2
+    assert analysis[0]["id"] == "case_fp"
+    assert analysis[0]["category"] == "false_positive"

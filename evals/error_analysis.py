@@ -65,9 +65,21 @@ def print_error_analysis(
         print(f"{mismatch_result.id}: {category}")
 
 
-def test_print_error_analysis_with_no_mismatches(capsys):
-    print_error_analysis([])
+def get_error_analysis(
+    results: list[SemanticEvalResult],
+) -> list[dict]:
+    analysis = []
 
-    output = capsys.readouterr().out
+    mismatch_results = find_mismatches(results)
 
-    assert "No mismatches found." in output
+    for mismatch_result in mismatch_results:
+        category = classify_mismatch(mismatch_result)
+
+        analysis.append(
+            {
+                "id": mismatch_result.id,
+                "category": category,
+            }
+        )
+
+    return analysis

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, StrictBool, TypeAdapter
 
 
 class SemanticEvalSuccess(BaseModel):
@@ -30,3 +30,18 @@ def parse_eval_results(
     results = adapter.validate_python(raw_results)
 
     return results
+
+
+class SemanticEvalCase(BaseModel):
+    id: str
+    included: str
+    excluded: str
+    expected_review: StrictBool
+
+
+def parse_eval_cases(raw_cases: list[dict]) -> list[SemanticEvalCase]:
+    adapter = TypeAdapter(list[SemanticEvalCase])
+
+    cases: list[SemanticEvalCase] = adapter.validate_python(raw_cases)
+
+    return cases
