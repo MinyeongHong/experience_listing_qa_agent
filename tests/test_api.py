@@ -76,6 +76,60 @@ def test_create_analysis(monkeypatch):
     assert len(saved_result.issues) == 2
 
 
+def test_create_analysis_with_missing_fields(monkeypatch):
+    fake_listing = Listing(
+        title="Historic Walking Tour",
+        city=None,
+        duration_minutes=None,
+        price=35,
+        meeting_point=None,
+        inclusions=[],
+        exclusions=[],
+    )
+
+    def fake_extract_listing(raw_text: str) -> Listing:
+        return fake_listing
+
+    monkeypatch.setattr(
+        "app.main.extract_listing",
+        fake_extract_listing,
+    )
+
+    saved = []
+
+    test_id = UUID("12345678-1234-5678-1234-567812345678")
+
+    def fake_save_analysis(session, raw_text, result):
+        saved.append((raw_text, result))
+
+        return SimpleNamespace(id=test_id)
+
+    monkeypatch.setattr(
+        "app.main.save_analysis",
+        fake_save_analysis,
+    )
+
+    response = client.post(
+        "/analyses",
+        json={"text": "some raw listing text"},
+    )
+
+    data = response.json()
+
+    assert data["extracted_fields"]["city"] is None
+    assert data["extracted_fields"]["duration_minutes"] is None
+
+    assert len(saved) == 1
+    assert saved[0][1].extracted_fields.city is None
+
+    codes = {issue["code"] for issue in data["issues"]}
+
+    assert "MISSING_CITY" in codes
+    assert "MISSING_DURATION" in codes
+
+    assert response.status_code == 200
+
+
 def test_create_analysis_returns_502_when_extraction_fails(monkeypatch):
     def fake_extract_listing(raw_text: str):
         raise ExtractionError("Gemini failed")
@@ -194,3 +248,55 @@ def test_get_analysis_not_found(monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Analysis not found"
+
+
+def test_get_analysis_with_missing_fields(monkeypatch):
+    test_id = UUID("12345678-1234-5678-1234-567812345678")
+
+    fake_record = SimpleNamespace(
+        id=test_id,
+        extracted_fields={
+            "title": "Historic Walking Tour",
+            "city": None,
+            "duration_minutes": None,
+            "price": 35,
+            "meeting_point": None,
+            "inclusions": [],
+            "exclusions": [],
+        },
+        issues=[
+            SimpleNamespace(
+                code="MISSING_CITY",
+                field="city",
+                message="City is missing.",
+            ),
+            SimpleNamespace(
+                code="MISSING_DURATION",
+                field="duration_minutes",
+                message="Duration is missing.",
+            ),
+        ],
+        confidence=1.0,
+    )
+
+    def fake_get_analysis(session, analysis_id):
+        return fake_record
+
+    monkeypatch.setattr(
+        "app.main.get_analysis",
+        fake_get_analysis,
+    )
+
+    response = client.get(f"/analyses/{test_id}")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["extracted_fields"]["city"] is None
+    assert data["extracted_fields"]["duration_minutes"] is None
+
+    codes = {issue["code"] for issue in data["issues"]}
+
+    assert "MISSING_CITY" in codes
+    assert "MISSING_DURATION" in codes

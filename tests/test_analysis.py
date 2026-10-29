@@ -2,6 +2,43 @@ from app.domain.models import Listing
 from app.services.analysis import analyze_listing
 
 
+def test_analysis_detects_blank_city():
+    listing = Listing(
+        title="Historic Walking Tour",
+        city="  ",
+        duration_minutes=90,
+        price=45.0,
+        meeting_point="La Rambla",
+        inclusions=["Lunch"],
+        exclusions=["Drinks"],
+    )
+
+    issues = analyze_listing(listing)
+
+    assert len(issues) == 1
+    assert issues[0].code == "MISSING_CITY"
+
+
+def test_analysis_detects_missing_city_and_duration():
+    listing = Listing(
+        title="Barcelona Tour",
+        city=None,
+        duration_minutes=None,
+        price=45.0,
+        meeting_point="La Rambla",
+        inclusions=["Lunch"],
+        exclusions=["Drinks"],
+    )
+
+    issues = analyze_listing(listing)
+
+    codes = {issue.code for issue in issues}
+
+    assert "MISSING_CITY" in codes
+    assert "MISSING_DURATION" in codes
+    assert codes == {"MISSING_CITY", "MISSING_DURATION"}
+
+
 def test_different_inclusion_and_exclusion():
     listing = Listing(
         title="Barcelona Tour",

@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 
 class Listing(BaseModel):
     title: str
-    city: str
-    duration_minutes: int = Field(ge=1)
+    city: str | None = None
+    duration_minutes: int | None = Field(default=None, ge=1)
     price: float | None = Field(default=None, ge=0)
     meeting_point: str | None = None
     tags: list[str] = Field(default_factory=list)

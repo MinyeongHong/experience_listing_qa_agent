@@ -8,6 +8,24 @@ def normalize_text(value: str) -> str:
 def analyze_listing(listing: Listing) -> list[Issue]:
     issues = []
 
+    if listing.city is None or not listing.city.strip():
+        issues.append(
+            Issue(
+                code="MISSING_CITY",
+                field="city",
+                message="City is missing.",
+            )
+        )
+
+    if listing.duration_minutes is None:
+        issues.append(
+            Issue(
+                code="MISSING_DURATION",
+                field="duration_minutes",
+                message="Duration_minutes is missing.",
+            )
+        )
+
     if listing.meeting_point is None or not listing.meeting_point.strip():
         issues.append(
             Issue(
