@@ -7,11 +7,11 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.models import AnalysisRecord, IssueRecord
 from app.domain.models import Listing
+from app.main import app, get_listing_extractor
 
 
 @pytest.mark.integration
 def test_create_and_read_analysis(
-    monkeypatch,
     integration_client,
     db_session,
 ):
@@ -31,44 +31,45 @@ def test_create_and_read_analysis(
         exclusions=["Lunch", "Drinks"],
     )
 
-    def fake_extract_listing(raw_text: str) -> Listing:
-        return fake_listing
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            return fake_listing
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
-    # 3. 실제 POST 요청 → 테스트 DB 저장
-    post_response = integration_client.post(
-        "/analyses",
-        json={"text": "Integration test: Barcelona food tour"},
-    )
+    try:
+        post_response = integration_client.post(
+            "/analyses",
+            json={"text": "Integration test: Barcelona food tour"},
+        )
 
-    assert post_response.status_code == 200
+        assert post_response.status_code == 200
 
-    created = post_response.json()
-    analysis_id = UUID(created["id"])
+        created = post_response.json()
+        analysis_id = UUID(created["id"])
 
-    assert created["extracted_fields"]["title"] == fake_listing.title
-    assert len(created["issues"]) == 2
+        assert created["extracted_fields"]["title"] == fake_listing.title
+        assert len(created["issues"]) == 2
 
-    # 4. POST 결과가 실제 DB에 저장됐는지 확인
-    saved_count = db_session.execute(text("SELECT COUNT(*) FROM analyses")).scalar_one()
+        saved_count = db_session.execute(
+            text("SELECT COUNT(*) FROM analyses")
+        ).scalar_one()
 
-    assert saved_count == 1
+        assert saved_count == 1
 
-    # 5. 실제 GET 요청 → 테스트 DB 조회
-    get_response = integration_client.get(f"/analyses/{analysis_id}")
+        get_response = integration_client.get(f"/analyses/{analysis_id}")
 
-    assert get_response.status_code == 200
+        assert get_response.status_code == 200
 
-    loaded = get_response.json()
+        loaded = get_response.json()
 
-    assert loaded["id"] == str(analysis_id)
-    assert loaded["extracted_fields"] == created["extracted_fields"]
-    assert loaded["issues"] == created["issues"]
-    assert loaded["confidence"] == created["confidence"]
+        assert loaded["id"] == str(analysis_id)
+        assert loaded["extracted_fields"] == created["extracted_fields"]
+        assert loaded["issues"] == created["issues"]
+        assert loaded["confidence"] == created["confidence"]
+
+    finally:
+        app.dependency_overrides.pop(get_listing_extractor, None)
 
 
 @pytest.mark.integration

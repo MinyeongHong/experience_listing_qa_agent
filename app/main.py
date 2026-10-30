@@ -1,7 +1,9 @@
+import os
+from contextlib import asynccontextmanager
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -12,25 +14,50 @@ from app.domain.models import (
     Issue,
     Listing,
 )
+from app.integrations.gemini_client import create_gemini_client
 from app.services.analysis import analyze_listing
 from app.services.extraction import (
     ExtractionError,
     ExtractionTimeoutError,
+    ListingExtractor,
     RateLimitError,
-    extract_listing,
 )
 from app.services.persistence import get_analysis, save_analysis
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    client = create_gemini_client()
+
+    app.state.gemini_client = client
+
+    try:
+        yield
+    finally:
+        client.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+def get_listing_extractor(request: Request) -> ListingExtractor:
+    client = request.app.state.gemini_client
+    model = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+
+    return ListingExtractor(
+        client=client,
+        model=model,
+    )
 
 
 @app.post("/analyses", response_model=AnalysisResponse)
 def create_analysis(
     request: AnalysisRequest,
     session: Annotated[Session, Depends(get_db)],
+    extractor: Annotated[ListingExtractor, Depends(get_listing_extractor)],
 ) -> AnalysisResponse:
     try:
-        listing = extract_listing(request.text)
+        listing = extractor.extract(request.text)
 
     except RateLimitError as exc:
         raise HTTPException(

@@ -1,15 +1,23 @@
 from types import SimpleNamespace
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.domain.models import Listing
-from app.main import app
+from app.main import app, get_listing_extractor
 from app.services.extraction import (
     ExtractionError,
     ExtractionTimeoutError,
     RateLimitError,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_dependency_overrides():
+    yield
+    app.dependency_overrides.clear()
+
 
 client = TestClient(app)
 
@@ -25,16 +33,12 @@ def test_create_analysis(monkeypatch):
         exclusions=["Lunch", "Drinks"],
     )
 
-    # 1. Gemini 추출 함수 대체
-    def fake_extract_listing(raw_text: str) -> Listing:
-        return fake_listing
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            return fake_listing
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
-    # 2. DB 저장 함수 대체
     saved = []
 
     test_id = UUID("12345678-1234-5678-1234-567812345678")
@@ -49,13 +53,11 @@ def test_create_analysis(monkeypatch):
         fake_save_analysis,
     )
 
-    # 3. Mock 설정이 모두 끝난 후 API 호출
     response = client.post(
         "/analyses",
         json={"text": "some raw listing text"},
     )
 
-    # 4. 응답 검증
     assert response.status_code == 200
 
     data = response.json()
@@ -66,7 +68,6 @@ def test_create_analysis(monkeypatch):
     assert data["issues"][0]["code"] == "MISSING_MEETING_POINT"
     assert data["issues"][1]["code"] == "CONTRADICTORY_INCLUSION"
 
-    # 5. DB 저장 함수 호출 검증
     assert len(saved) == 1
     assert saved[0][0] == "some raw listing text"
 
@@ -87,13 +88,11 @@ def test_create_analysis_with_missing_fields(monkeypatch):
         exclusions=[],
     )
 
-    def fake_extract_listing(raw_text: str) -> Listing:
-        return fake_listing
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            return fake_listing
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
     saved = []
 
@@ -131,13 +130,11 @@ def test_create_analysis_with_missing_fields(monkeypatch):
 
 
 def test_create_analysis_returns_502_when_extraction_fails(monkeypatch):
-    def fake_extract_listing(raw_text: str):
-        raise ExtractionError("Gemini failed")
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            raise ExtractionError("Gemini failed")
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
     response = client.post(
         "/analyses",
@@ -149,13 +146,11 @@ def test_create_analysis_returns_502_when_extraction_fails(monkeypatch):
 
 
 def test_create_analysis_returns_503_when_rate_limited(monkeypatch):
-    def fake_extract_listing(raw_text: str):
-        raise RateLimitError("Gemini rate limit exceeded")
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            raise RateLimitError("Gemini failed")
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
     response = client.post(
         "/analyses",
@@ -169,13 +164,11 @@ def test_create_analysis_returns_503_when_rate_limited(monkeypatch):
 
 
 def test_create_analysis_returns_504_when_extraction_times_out(monkeypatch):
-    def fake_extract_listing(raw_text: str):
-        raise ExtractionTimeoutError("Gemini request timed out")
+    class FakeExtractor:
+        def extract(self, raw_text: str) -> Listing:
+            raise ExtractionTimeoutError("Gemini failed")
 
-    monkeypatch.setattr(
-        "app.main.extract_listing",
-        fake_extract_listing,
-    )
+    app.dependency_overrides[get_listing_extractor] = lambda: FakeExtractor()
 
     response = client.post(
         "/analyses",
