@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,10 +13,12 @@ from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError
 from evals.error_analysis import print_error_analysis
 from evals.models import (
+    EvalRunMetadata,
     SemanticEvalCase,
     SemanticEvalError,
     SemanticEvalResult,
     SemanticEvalSuccess,
+    SemanticMetrics,
     parse_eval_cases,
     parse_eval_results,
 )
@@ -35,16 +38,16 @@ def count_errors(results: list[SemanticEvalResult]) -> int:
 
 def print_metrics(
     mode: str,
-    metrics: dict,
+    metrics: SemanticMetrics,
     evaluated: int,
 ) -> None:
 
     print(f"\n=== Semantic Review Evaluation ({mode}) ===")
-    print(f"TP={metrics['tp']}, FP={metrics['fp']}")
-    print(f"FN={metrics['fn']}, TN={metrics['tn']}")
-    print(f"Precision={metrics['precision']:.2%}")
-    print(f"Recall={metrics['recall']:.2%}")
-    print(f"F1={metrics['f1']:.2%}")
+    print(f"TP={metrics.tp}, FP={metrics.fp}")
+    print(f"FN={metrics.fn}, TN={metrics.tn}")
+    print(f"Precision={metrics.precision:.2%}")
+    print(f"Recall={metrics.recall:.2%}")
+    print(f"F1={metrics.f1:.2%}")
     print(f"Evaluated={evaluated}")
 
 
@@ -69,7 +72,9 @@ def main():
 
         print_error_analysis(evaluation_results)
 
-        metrics: dict = calculate_metrics(evaluation_results)
+        report = build_eval_report(evaluation_results)
+
+        metrics = report.metrics
 
         evaluated_sum: int = sum(
             1
@@ -193,13 +198,24 @@ def main():
 
         print(f"Results saved to {output_path}")
 
-        report = build_eval_report(evaluation_results)
+        report = build_eval_report(
+            evaluation_results,
+            total_cases=len(cases),
+            skipped_cases=skipped,
+            metadata=EvalRunMetadata(
+                model=model,
+                prompt_version="v1",
+                dataset_version="v1",
+                mode="live",
+                timestamp=datetime.now(UTC).isoformat(),
+            ),
+        )
 
         report_path = Path("evals/semantic_report.json")
 
         report_path.write_text(
             json.dumps(
-                report,
+                report.model_dump_json(indent=2),
                 ensure_ascii=False,
                 indent=2,
             ),

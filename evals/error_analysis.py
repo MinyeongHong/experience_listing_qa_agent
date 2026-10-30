@@ -1,7 +1,10 @@
+from typing import Literal
+
 from evals.models import (
     SemanticEvalError,
     SemanticEvalResult,
     SemanticEvalSuccess,
+    SemanticMismatch,
 )
 
 
@@ -20,7 +23,9 @@ def find_mismatches(
     return mismatches
 
 
-def classify_mismatch(result: SemanticEvalSuccess) -> str:
+def classify_mismatch(
+    result: SemanticEvalSuccess,
+) -> Literal["false_positive", "false_negative", "correct"]:
     expected = result.expected_review
     predicted = result.predicted_review
 
@@ -67,19 +72,19 @@ def print_error_analysis(
 
 def get_error_analysis(
     results: list[SemanticEvalResult],
-) -> list[dict]:
-    analysis = []
+) -> list[SemanticMismatch]:
+    analysis: list[SemanticMismatch] = []
 
-    mismatch_results = find_mismatches(results)
-
-    for mismatch_result in mismatch_results:
+    for mismatch_result in find_mismatches(results):
         category = classify_mismatch(mismatch_result)
+        if category == "correct":
+            continue
 
         analysis.append(
-            {
-                "id": mismatch_result.id,
-                "category": category,
-            }
+            SemanticMismatch(
+                id=mismatch_result.id,
+                category=category,
+            )
         )
 
     return analysis

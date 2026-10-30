@@ -130,5 +130,7 @@ def test_get_error_analysis():
     analysis = get_error_analysis(results)
 
     assert len(analysis) == 2
-    assert analysis[0]["id"] == "case_fp"
-    assert analysis[0]["category"] == "false_positive"
+    assert analysis[0].id == "case_fp"
+    assert analysis[0].category == "false_positive"
+    assert analysis[1].id == "case_fn"
+    assert analysis[1].category == "false_negative"

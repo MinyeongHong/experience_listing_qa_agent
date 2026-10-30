@@ -1,7 +1,7 @@
-from evals.models import SemanticEvalError, SemanticEvalResult
+from evals.models import SemanticEvalError, SemanticEvalResult, SemanticMetrics
 
 
-def calculate_metrics(results: list[SemanticEvalResult]) -> dict:
+def calculate_metrics(results: list[SemanticEvalResult]) -> SemanticMetrics:
     tp = fp = fn = tn = 0
 
     for result in results:
@@ -38,12 +38,12 @@ def calculate_metrics(results: list[SemanticEvalResult]) -> dict:
     else:
         f1 = 2 * precision * recall / (precision + recall)
 
-    return {
-        "tp": tp,
-        "fp": fp,
-        "fn": fn,
-        "tn": tn,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-    }
+    return SemanticMetrics(
+        tp=tp,
+        fp=fp,
+        fn=fn,
+        tn=tn,
+        precision=precision,
+        recall=recall,
+        f1=f1,
+    )

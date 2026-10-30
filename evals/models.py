@@ -1,6 +1,46 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, StrictBool, TypeAdapter
+
+
+class SemanticMetrics(BaseModel):
+    tp: int
+    fp: int
+    fn: int
+    tn: int
+    precision: float
+    recall: float
+    f1: float
+
+
+class SemanticMismatch(BaseModel):
+    id: str
+    category: Literal["false_positive", "false_negative"]
+
+
+class EvalRunMetadata(BaseModel):
+    model: str
+    prompt_version: str
+    dataset_version: str
+    mode: Literal["live", "replay"]
+    timestamp: datetime
+
+
+class SemanticEvalReport(BaseModel):
+    total_cases: int | None
+    attempted_cases: int
+    evaluated_cases: int
+    skipped_cases: int | None
+    provider_errors: int
+
+    evaluation_coverage: float | None
+    provider_error_rate: float
+
+    metadata: EvalRunMetadata | None
+
+    metrics: SemanticMetrics
+    mismatches: list[SemanticMismatch]
 
 
 class SemanticEvalSuccess(BaseModel):

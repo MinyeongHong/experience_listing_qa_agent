@@ -44,13 +44,13 @@ def test_calculate_metrics():
 
     metrics = calculate_metrics(results)
 
-    assert metrics["tp"] == 2
-    assert metrics["fp"] == 1
-    assert metrics["fn"] == 1
-    assert metrics["tn"] == 1
-    assert metrics["precision"] == 2 / 3
-    assert metrics["recall"] == 2 / 3
-    assert metrics["f1"] == 2 / 3
+    assert metrics.tp == 2
+    assert metrics.fp == 1
+    assert metrics.fn == 1
+    assert metrics.tn == 1
+    assert metrics.precision == 2 / 3
+    assert metrics.recall == 2 / 3
+    assert metrics.f1 == 2 / 3
 
 
 def test_calculate_metrics_skips_errors():
@@ -71,10 +71,10 @@ def test_calculate_metrics_skips_errors():
 
     metrics = calculate_metrics(results)
 
-    assert metrics["tp"] == 1
-    assert metrics["fp"] == 0
-    assert metrics["fn"] == 0
-    assert metrics["tn"] == 0
+    assert metrics.tp == 1
+    assert metrics.fp == 0
+    assert metrics.fn == 0
+    assert metrics.tn == 0
 
 
 def test_count_errors():
