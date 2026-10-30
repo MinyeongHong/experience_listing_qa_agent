@@ -214,11 +214,7 @@ def main():
         report_path = Path("evals/semantic_report.json")
 
         report_path.write_text(
-            json.dumps(
-                report.model_dump_json(indent=2),
-                ensure_ascii=False,
-                indent=2,
-            ),
+            report.model_dump_json(indent=2),
             encoding="utf-8",
         )
 
