@@ -46,5 +46,41 @@
       "included": "Guided tour",
       "excluded": "Tips and gratuities",
       "expected_review": false
+    },
+    {
+      "id": "admission_synonym",
+      "included": "Entrance ticket",
+      "excluded": "Admission fee",
+      "expected_review": true
+    },
+    {
+      "id": "pickup_vs_airport_transfer",
+      "included": "Hotel pickup",
+      "excluded": "Airport transfer",
+      "expected_review": false
+    },
+    {
+      "id": "wine_vs_alcohol",
+      "included": "Wine tasting",
+      "excluded": "Alcoholic beverages",
+      "expected_review": true
+    },
+    {
+      "id": "guide_type_difference",
+      "included": "Tour guide",
+      "excluded": "Audio guide",
+      "expected_review": false
+    },
+    {
+      "id": "return_transport_synonym",
+      "included": "Round-trip transport",
+      "excluded": "Return transfer",
+      "expected_review": true
+    },
+    {
+      "id": "admission_upgrade_difference",
+      "included": "Standard admission",
+      "excluded": "VIP admission upgrade",
+      "expected_review": false
     }
   ]

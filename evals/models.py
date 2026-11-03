@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, StrictBool, TypeAdapter
+from pydantic import BaseModel, Field, StrictBool, TypeAdapter
 
 
 class SemanticMetrics(BaseModel):
@@ -41,6 +41,20 @@ class SemanticEvalReport(BaseModel):
 
     metrics: SemanticMetrics
     mismatches: list[SemanticMismatch]
+
+
+class SemanticMetricDeltas(BaseModel):
+    precision: float
+    recall: float
+    f1: float
+    coverage: float
+
+
+class SemanticRegressionComparison(BaseModel):
+    status: Literal["passed", "regression", "not_comparable"]
+    max_f1_drop: float = Field(default=0.02, ge=0, le=1, allow_inf_nan=False)
+    deltas: SemanticMetricDeltas | None = None
+    reasons: list[str] = Field(default_factory=list)
 
 
 class SemanticEvalSuccess(BaseModel):

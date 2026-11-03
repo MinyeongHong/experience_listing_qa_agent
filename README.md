@@ -207,6 +207,43 @@ uv run python -m evals.run_semantic_eval --replay --results-path path/to/results
 
 Metrics include confusion-matrix counts (TP, FP, FN, TN), precision, recall, and F1. Live reports also track evaluation coverage, provider error rate, skipped cases, and metadata. Replay mode cannot reconstruct skipped-case counts or full dataset coverage from a results file alone.
 
+### Regression comparison
+
+Compare two saved semantic **report** JSON files without calling Gemini:
+
+```bash
+uv run python -m evals.compare_semantic_reports path/to/baseline_report.json path/to/candidate_report.json
+```
+
+The CLI prints a JSON comparison with `status`, `max_f1_drop`, `deltas`, and `reasons`.
+Precision, recall, F1, and coverage deltas are **candidate minus baseline**, on the
+0–1 scale. An F1 drop strictly greater than `0.02` (two percentage points) is a
+regression; a drop exactly equal to the threshold passes. Set a custom tolerance:
+
+```bash
+uv run python -m evals.compare_semantic_reports path/to/baseline_report.json path/to/candidate_report.json --max-f1-drop 0.01
+```
+
+Exit codes are `0` for `passed`, `1` for `regression`, and `2` for
+`not_comparable` or invalid input. Uncomparable reports return reasons and null
+deltas. The tolerance must be a finite number between 0 and 1.
+
+Both reports must have the same nonempty `metadata.dataset_version` and total
+case count, matching `evaluated_cases`, `skipped_cases`, and `evaluation_coverage`,
+zero provider errors, and complete, consistent evaluation counts and coverage.
+Any difference in those counts or coverage makes the reports `not_comparable`.
+Deterministic exact-match skips are allowed: successful evaluations
+plus skips must account for the entire nonempty dataset, with at least one
+successfully evaluated case. Reports missing metadata or coverage, including
+reports reconstructed from results alone, cannot be compared.
+
+Do **not** compare the original 8-case results against the expanded 14-case
+results. Assign a new dataset version when the dataset changes and obtain both
+baseline and candidate reports on that same dataset. Matching dataset versions,
+case counts, and coverage do not guarantee identical evaluated case IDs.
+Aggregate reports do not contain the full case ID set, so the comparison cannot
+verify case identity; callers must ensure both runs evaluated the same cases.
+
 ## Tests and linting
 
 Run all tests:
@@ -246,7 +283,7 @@ Tests use fake Gemini clients and FastAPI dependency overrides to avoid external
 - Semantic conflict detection is evaluated separately and is not yet part of the POST analysis pipeline.
 - The API's `confidence` field is currently a fixed value rather than a measured or calibrated confidence score.
 - Extraction depends on an external model, so responses can vary; factual accuracy and prompt-injection robustness require further evaluation.
-- Dataset expansion, regression evaluation, CI, and input-size safeguards remain future work.
+- Further dataset expansion and input-size safeguards remain future work.
 - Retry/idempotency behavior and post-commit failure handling may require additional hardening for production use.
 
 ## Project status
