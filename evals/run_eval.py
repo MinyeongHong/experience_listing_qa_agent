@@ -1,11 +1,13 @@
 import argparse
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
 from app.domain.models import Listing
+from app.integrations.gemini_client import create_gemini_client
 from app.services.analysis import analyze_listing
-from app.services.extraction import ExtractionError, extract_listing
+from app.services.extraction import ExtractionError, ListingExtractor
 from evals.metrics import CaseMetrics, aggregate_metrics, evaluate_case
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,12 +21,14 @@ def load_cases() -> dict:
         return json.load(file)
 
 
-def run_case(case_name: str, case: dict) -> tuple[dict, CaseMetrics | None]:
+def run_case(
+    case_name: str, case: dict, extractor: ListingExtractor
+) -> tuple[dict, CaseMetrics | None]:
     source_path = EXAMPLES_DIR / case["source_file"]
     raw_text = source_path.read_text(encoding="utf-8")
 
     try:
-        listing = extract_listing(raw_text)
+        listing = extractor.extract(raw_text)
     except ExtractionError as exc:
         print(f"❌ {case_name}: extraction failed: {exc}")
 
@@ -231,12 +235,20 @@ def main():
     results = []
     case_metrics = []
 
-    for case_name, case in cases.items():
-        result, metrics = run_case(case_name, case)
-        results.append(result)
+    client = create_gemini_client()
+    try:
+        extractor = ListingExtractor(
+            client=client,
+            model=os.getenv("GEMINI_MODEL") or "gemini-2.5-flash",
+        )
+        for case_name, case in cases.items():
+            result, metrics = run_case(case_name, case, extractor)
+            results.append(result)
 
-        if metrics is not None:
-            case_metrics.append(metrics)
+            if metrics is not None:
+                case_metrics.append(metrics)
+    finally:
+        client.close()
 
     summary = aggregate_metrics(case_metrics)
     passed_count = sum(result["passed"] for result in results)

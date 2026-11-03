@@ -1,5 +1,6 @@
 from typing import Any
 
+import httpx
 from google.genai import errors, types
 from pydantic import ValidationError
 
@@ -63,6 +64,9 @@ class GeminiSemanticClassifier:
                 )
 
             return SemanticDecision.model_validate(parsed)
+
+        except (TimeoutError, httpx.TimeoutException) as exc:
+            raise SemanticClassificationError("Gemini request timed out.") from exc
 
         except errors.APIError as exc:
             raise SemanticClassificationError("Gemini API request failed.") from exc

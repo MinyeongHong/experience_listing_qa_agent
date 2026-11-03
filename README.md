@@ -215,6 +215,12 @@ Run all tests:
 uv run pytest -q
 ```
 
+Run tests without a database or Gemini credentials:
+
+```bash
+uv run pytest -m "not integration" -q
+```
+
 Run unit tests for extraction, API, and persistence behavior:
 
 ```bash
@@ -233,7 +239,7 @@ Run Ruff:
 uv run ruff check .
 ```
 
-Tests use fake Gemini clients and FastAPI dependency overrides to avoid external model calls. Database integration tests require a real, appropriately configured test database.
+Tests use fake Gemini clients and FastAPI dependency overrides to avoid external model calls. Database integration tests require `TEST_DATABASE_URL` pointing to a migrated PostgreSQL database named `listingqa_test`; they truncate the `analyses` and `issues` tables before and after each test. Integration tests are skipped when `TEST_DATABASE_URL` is absent. Unit tests do not require database environment variables.
 
 ## Current limitations and next steps
 

@@ -4,6 +4,7 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from app.db.session import get_db
 from app.domain.models import Listing
 from app.main import app, get_listing_extractor
 from app.services.extraction import (
@@ -15,6 +16,10 @@ from app.services.extraction import (
 
 @pytest.fixture(autouse=True)
 def clear_dependency_overrides():
+    def fake_get_db():
+        yield SimpleNamespace()
+
+    app.dependency_overrides[get_db] = fake_get_db
     yield
     app.dependency_overrides.clear()
 

@@ -1,23 +1,21 @@
 import os
 from collections.abc import Generator
+from functools import lru_cache
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-load_dotenv()
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+@lru_cache(maxsize=1)
+def get_session_factory() -> sessionmaker[Session]:
+    load_dotenv()
+    engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+    return sessionmaker(bind=engine, autoflush=False)
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-)
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-)
+def SessionLocal() -> Session:
+    return get_session_factory()()
 
 
 def get_db() -> Generator[Session, None, None]:
