@@ -34,10 +34,29 @@ def build_comparison_pairs(listing: Listing) -> list[tuple[str, str]]:
 def find_review_candidates(
     listing: Listing,
     classifier: SemanticClassifier,
+    *,
+    max_llm_calls: int | None = None,
 ) -> list[ReviewCandidate]:
+    if max_llm_calls is not None and max_llm_calls < 0:
+        raise ValueError("max_llm_calls must be non-negative or None")
+
     candidates = []
+    attempts = 0
 
     for included, excluded in build_comparison_pairs(listing):
+        if max_llm_calls is not None and attempts >= max_llm_calls:
+            candidates.append(
+                ReviewCandidate(
+                    code="SEMANTIC_BUDGET_EXHAUSTED",
+                    field="inclusions",
+                    included_item=included,
+                    excluded_item=excluded,
+                    reason="Semantic comparison not performed: call budget exhausted; manual review required.",
+                )
+            )
+            continue
+
+        attempts += 1
         try:
             decision = classifier.classify(included, excluded)
         except SemanticClassificationError:
