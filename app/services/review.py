@@ -17,12 +17,15 @@ class SemanticClassificationError(Exception):
 
 def build_comparison_pairs(listing: Listing) -> list[tuple[str, str]]:
     pairs = []
+    seen: set[tuple[str, str]] = set()
 
     for included in listing.inclusions:
         for excluded in listing.exclusions:
-            if included.strip().casefold() == excluded.strip().casefold():
+            pair = (included.strip().casefold(), excluded.strip().casefold())
+            if pair[0] == pair[1] or pair in seen:
                 continue
 
+            seen.add(pair)
             pairs.append((included, excluded))
 
     return pairs

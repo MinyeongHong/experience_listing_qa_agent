@@ -135,6 +135,32 @@ def test_build_comparison_pairs():
     ]
 
 
+def test_build_comparison_pairs_deduplicates_normalized_pairs_in_first_seen_order():
+    listing = make_listing(
+        inclusions=[" Straße ", "STRASSE", "Lunch", " lunch "],
+        exclusions=[" Drinks ", "DRINKS", "strasse", "Lunch"],
+    )
+
+    assert build_comparison_pairs(listing) == [
+        (" Straße ", " Drinks "),
+        (" Straße ", "Lunch"),
+        ("Lunch", " Drinks "),
+        ("Lunch", "strasse"),
+    ]
+
+
+def test_build_comparison_pairs_preserves_direction_when_deduplicating():
+    listing = make_listing(
+        inclusions=["Lunch", "Drinks", " lunch "],
+        exclusions=["Drinks", "Lunch", " drinks "],
+    )
+
+    assert build_comparison_pairs(listing) == [
+        ("Lunch", "Drinks"),
+        ("Drinks", "Lunch"),
+    ]
+
+
 def test_uncertain_decision_creates_review_candidate():
     listing = make_listing(
         inclusions=["Hotel pickup"],
