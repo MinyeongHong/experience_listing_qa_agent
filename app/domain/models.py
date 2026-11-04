@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PositiveInt, field_validator
 
 
 class Listing(BaseModel):
@@ -13,7 +13,7 @@ class Listing(BaseModel):
     tags: list[str] = Field(default_factory=list)
     inclusions: list[str] = Field(default_factory=list)
     exclusions: list[str] = Field(default_factory=list)
-    duration_mentions: list[int] = Field(default_factory=list)
+    duration_mentions: list[PositiveInt] = Field(default_factory=list)
 
     @field_validator("title")
     @classmethod
@@ -39,7 +39,14 @@ class AnalysisResult(BaseModel):
 
 
 class AnalysisRequest(BaseModel):
-    text: str
+    text: str = Field(max_length=10_000)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("text cannot be blank")
+        return value
 
 
 class AnalysisResponse(AnalysisResult):
@@ -62,3 +69,10 @@ class SemanticDecision(BaseModel):
         "uncertain",
     ]
     reason: str = Field(min_length=1)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("reason cannot be blank")
+        return value

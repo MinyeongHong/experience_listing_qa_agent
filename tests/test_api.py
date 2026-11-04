@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
@@ -25,6 +26,54 @@ def clear_dependency_overrides():
 
 
 client = TestClient(app)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("", id="empty"),
+        pytest.param(" \t\r\n ", id="whitespace-only"),
+        pytest.param("\u2003\u3000", id="unicode-whitespace-only"),
+        pytest.param("a" * 10_001, id="over-limit"),
+        pytest.param(" " * 10_000 + "a", id="over-limit-with-padding"),
+    ],
+)
+def test_create_analysis_rejects_invalid_text_without_external_calls(monkeypatch, text):
+    extractor = Mock()
+    extractor.extract.return_value = Listing(title="Tour")
+    persistence = Mock(return_value=SimpleNamespace(id=UUID(int=1)))
+    app.dependency_overrides[get_listing_extractor] = lambda: extractor
+    monkeypatch.setattr("app.main.save_analysis", persistence)
+
+    response = client.post("/analyses", json={"text": text})
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "text"]
+    extractor.extract.assert_not_called()
+    persistence.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("  Rome walking tour\n", id="preserve-whitespace"),
+        pytest.param("a" * 10_000, id="at-limit"),
+        pytest.param("여" * 10_000, id="unicode-at-limit"),
+    ],
+)
+def test_create_analysis_accepts_valid_text_unchanged(monkeypatch, text):
+    extractor = Mock()
+    extractor.extract.return_value = Listing(title="Tour")
+    persistence = Mock(return_value=SimpleNamespace(id=UUID(int=1)))
+    app.dependency_overrides[get_listing_extractor] = lambda: extractor
+    monkeypatch.setattr("app.main.save_analysis", persistence)
+
+    response = client.post("/analyses", json={"text": text})
+
+    assert response.status_code == 200
+    extractor.extract.assert_called_once_with(text)
+    persistence.assert_called_once()
+    assert persistence.call_args.args[1] == text
 
 
 def test_create_analysis(monkeypatch):
