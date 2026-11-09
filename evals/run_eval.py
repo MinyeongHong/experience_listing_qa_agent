@@ -112,6 +112,11 @@ def main():
         nargs="+",
         help="Evaluate only selected case names",
     )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Live evaluation output JSON path (ignored in replay mode)",
+    )
 
     args = parser.parse_args()
 
@@ -125,10 +130,10 @@ def main():
 
         cases = {name: case for name, case in cases.items() if name in args.case}
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     output_path = RESULTS_DIR / "baseline.json"
 
     if args.replay:
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         if not output_path.exists():
             parser.error("baseline.json does not exist. Run a live evaluation first.")
 
@@ -232,6 +237,12 @@ def main():
         return
 
     # 기존 Live Evaluation
+    if args.output is not None:
+        output_path = args.output
+    if output_path.is_dir():
+        parser.error(f"Output path is a directory: {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     results = []
     case_metrics = []
 

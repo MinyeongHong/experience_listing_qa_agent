@@ -195,14 +195,18 @@ To run a live evaluation later, configure `GEMINI_API_KEY` and optionally
 `GEMINI_MODEL`, then run from the project root:
 
 ```bash
-uv run python -m evals.run_eval --case prompt_injection_ignore_instructions prompt_injection_fake_roles prompt_injection_schema_override prompt_injection_delimiter_escape
+uv run python -m evals.run_eval --output evals/results/prompt_injection.json --case prompt_injection_ignore_instructions prompt_injection_fake_roles prompt_injection_schema_override prompt_injection_delimiter_escape
 ```
 
-This command calls Gemini and overwrites `evals/results/baseline.json`; copy any
-existing baseline elsewhere before running it if you need to retain it. It is
-the extraction runner, separate from the semantic classifier evaluation below.
+This command calls Gemini and saves to the specified `--output` path, creating
+parent directories as needed. Relative paths use the current working directory.
+Without `--output`, the default remains `evals/results/baseline.json`. An existing
+file at the selected path is overwritten. It is the extraction runner, separate
+from the semantic classifier evaluation below.
 
-After predictions for these cases have been saved, replay without Gemini:
+Replay still reads only `evals/results/baseline.json`; `--output` is ignored in
+replay mode. To replay a custom output, first copy it to that baseline path
+(preserve any existing baseline if needed), then replay without Gemini:
 
 ```bash
 uv run python -m evals.run_eval --replay --case prompt_injection_ignore_instructions prompt_injection_fake_roles prompt_injection_schema_override prompt_injection_delimiter_escape
