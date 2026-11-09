@@ -68,10 +68,21 @@ class GeminiSemanticClassifier:
         except (TimeoutError, httpx.TimeoutException) as exc:
             raise SemanticClassificationError("Gemini request timed out.") from exc
 
+        except (httpx.RequestError, ConnectionError) as exc:
+            raise SemanticClassificationError("Gemini connection failed.") from exc
+
         except errors.APIError as exc:
             raise SemanticClassificationError("Gemini API request failed.") from exc
 
         except (ValidationError, ValueError, TypeError) as exc:
             raise SemanticClassificationError(
                 "Gemini returned an invalid decision."
+            ) from exc
+
+        except SemanticClassificationError:
+            raise
+
+        except Exception as exc:
+            raise SemanticClassificationError(
+                "Gemini semantic classification failed."
             ) from exc

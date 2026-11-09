@@ -9,7 +9,9 @@ from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.services.review import SemanticClassificationError, find_review_candidates
 
 
-@pytest.mark.parametrize("error", [TimeoutError("timeout"), httpx.ReadTimeout("timeout")])
+@pytest.mark.parametrize(
+    "error", [TimeoutError("timeout"), httpx.ReadTimeout("timeout")]
+)
 def test_gemini_classifier_converts_timeout(error):
     client = Mock()
     client.models.generate_content.side_effect = error
@@ -24,11 +26,15 @@ def test_timeout_creates_review_candidate_and_continues():
     client = Mock()
     client.models.generate_content.side_effect = [
         httpx.ReadTimeout("timeout"),
-        Mock(parsed=SemanticDecision(verdict="no_conflict", reason="Different services")),
+        Mock(
+            parsed=SemanticDecision(verdict="no_conflict", reason="Different services")
+        ),
     ]
     listing = Listing(title="Tour", inclusions=["Lunch", "Guide"], exclusions=["Food"])
 
-    candidates = find_review_candidates(listing, GeminiSemanticClassifier(client=client))
+    candidates = find_review_candidates(
+        listing, GeminiSemanticClassifier(client=client)
+    )
 
     assert len(candidates) == 1
     assert candidates[0].code == "SEMANTIC_CLASSIFICATION_FAILED"
@@ -117,3 +123,37 @@ def test_gemini_classifier_converts_api_error():
             included_item="Food tasting",
             excluded_item="Food tastings",
         )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        httpx.ConnectError("offline"),
+        ConnectionError("offline"),
+        RuntimeError("provider failure"),
+    ],
+)
+def test_gemini_classifier_wraps_connection_and_provider_failures(error):
+    client = Mock()
+    client.models.generate_content.side_effect = error
+    with pytest.raises(SemanticClassificationError) as exc_info:
+        GeminiSemanticClassifier(client).classify("Lunch", "Meals")
+    assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.parametrize("response", [None, object(), {"parsed": "bad"}])
+def test_gemini_classifier_rejects_malformed_response(response):
+    client = Mock()
+    client.models.generate_content.return_value = response
+    with pytest.raises(SemanticClassificationError):
+        GeminiSemanticClassifier(client).classify("Lunch", "Meals")
+
+
+def test_gemini_classifier_converts_nul_reason_to_classification_error():
+    client = Mock()
+    client.models.generate_content.return_value.parsed = {
+        "verdict": "uncertain",
+        "reason": "Scope unclear\x00",
+    }
+    with pytest.raises(SemanticClassificationError, match="invalid decision"):
+        GeminiSemanticClassifier(client).classify("Lunch", "Meals")

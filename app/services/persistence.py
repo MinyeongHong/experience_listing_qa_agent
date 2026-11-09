@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import AnalysisRecord, IssueRecord
+from app.db.models import AnalysisRecord, IssueRecord, ReviewCandidateRecord
 from app.domain.models import AnalysisResult
 
 
@@ -16,6 +16,9 @@ def save_analysis(
         raw_text=raw_text,
         extracted_fields=result.extracted_fields.model_dump(),
         confidence=result.confidence,
+        verdict=result.verdict,
+        review_required=result.review_required,
+        reason=result.reason,
         status="completed",
         issues=[
             IssueRecord(
@@ -24,6 +27,10 @@ def save_analysis(
                 message=issue.message,
             )
             for issue in result.issues
+        ],
+        review_candidates=[
+            ReviewCandidateRecord(position=position, **candidate.model_dump())
+            for position, candidate in enumerate(result.review_candidates)
         ],
     )
 
@@ -45,5 +52,8 @@ def get_analysis(
     return session.get(
         AnalysisRecord,
         analysis_id,
-        options=[selectinload(AnalysisRecord.issues)],
+        options=[
+            selectinload(AnalysisRecord.issues),
+            selectinload(AnalysisRecord.review_candidates),
+        ],
     )

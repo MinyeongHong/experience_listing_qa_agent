@@ -236,3 +236,16 @@ def test_missing_price_does_not_trigger_zero_price():
     issues = analyze_listing(listing)
 
     assert all(issue.code != "ZERO_PRICE" for issue in issues)
+
+
+def test_unicode_casefold_equivalent_items_are_deterministic_contradictions():
+    listing = Listing(
+        title="Tour",
+        city="Rome",
+        duration_minutes=60,
+        meeting_point="Main gate",
+        inclusions=[" Straße tour "],
+        exclusions=["STRASSE TOUR"],
+    )
+    issues = analyze_listing(listing)
+    assert [issue.code for issue in issues] == ["CONTRADICTORY_INCLUSION"]

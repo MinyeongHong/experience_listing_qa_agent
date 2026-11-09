@@ -32,10 +32,23 @@ class Issue(BaseModel):
     message: str
 
 
+class ReviewCandidate(BaseModel):
+    code: str
+    field: str
+    included_item: str
+    excluded_item: str
+    reason: str
+    status: Literal["pending", "confirmed", "dismissed"] = "pending"
+
+
 class AnalysisResult(BaseModel):
     extracted_fields: Listing
     issues: list[Issue]
-    confidence: float = Field(ge=0, le=1)
+    review_candidates: list[ReviewCandidate] = Field(default_factory=list)
+    verdict: Literal["pass", "review", "fail"]
+    review_required: bool
+    reason: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class AnalysisRequest(BaseModel):
@@ -53,15 +66,6 @@ class AnalysisResponse(AnalysisResult):
     id: UUID
 
 
-class ReviewCandidate(BaseModel):
-    code: str
-    field: str
-    included_item: str
-    excluded_item: str
-    reason: str
-    status: Literal["pending", "confirmed", "dismissed"] = "pending"
-
-
 class SemanticDecision(BaseModel):
     verdict: Literal[
         "possible_conflict",
@@ -73,6 +77,8 @@ class SemanticDecision(BaseModel):
     @field_validator("reason")
     @classmethod
     def validate_reason(cls, value: str) -> str:
+        if "\x00" in value:
+            raise ValueError("reason cannot contain NUL characters")
         if not value.strip():
             raise ValueError("reason cannot be blank")
         return value

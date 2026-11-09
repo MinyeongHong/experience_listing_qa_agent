@@ -4,7 +4,7 @@ from app.domain.models import Issue, Listing, ReviewCandidate
 
 
 def normalize_text(value: str) -> str:
-    return value.strip().lower()
+    return value.strip().casefold()
 
 
 def analyze_listing(listing: Listing) -> list[Issue]:

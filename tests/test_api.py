@@ -6,8 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db.session import get_db
-from app.domain.models import Listing
-from app.main import app, get_listing_extractor
+from app.domain.models import Listing, SemanticDecision
+from app.main import app, get_listing_extractor, get_semantic_classifier
 from app.services.extraction import (
     ExtractionError,
     ExtractionTimeoutError,
@@ -21,11 +21,29 @@ def clear_dependency_overrides():
         yield SimpleNamespace()
 
     app.dependency_overrides[get_db] = fake_get_db
+    classifier = Mock()
+    classifier.classify.return_value = SemanticDecision(
+        verdict="no_conflict", reason="Different services"
+    )
+    app.dependency_overrides[get_semantic_classifier] = lambda: classifier
     yield
     app.dependency_overrides.clear()
 
 
 client = TestClient(app)
+
+
+def saved_record(id_, result):
+    return SimpleNamespace(
+        id=id_,
+        extracted_fields=result.extracted_fields.model_dump(),
+        issues=result.issues,
+        review_candidates=result.review_candidates,
+        verdict=result.verdict,
+        review_required=result.review_required,
+        reason=result.reason,
+        confidence=result.confidence,
+    )
 
 
 @pytest.mark.parametrize(
@@ -64,7 +82,9 @@ def test_create_analysis_rejects_invalid_text_without_external_calls(monkeypatch
 def test_create_analysis_accepts_valid_text_unchanged(monkeypatch, text):
     extractor = Mock()
     extractor.extract.return_value = Listing(title="Tour")
-    persistence = Mock(return_value=SimpleNamespace(id=UUID(int=1)))
+    persistence = Mock(
+        side_effect=lambda session, raw_text, result: saved_record(UUID(int=1), result)
+    )
     app.dependency_overrides[get_listing_extractor] = lambda: extractor
     monkeypatch.setattr("app.main.save_analysis", persistence)
 
@@ -100,7 +120,7 @@ def test_create_analysis(monkeypatch):
     def fake_save_analysis(session, raw_text, result):
         saved.append((raw_text, result))
 
-        return SimpleNamespace(id=test_id)
+        return saved_record(test_id, result)
 
     monkeypatch.setattr(
         "app.main.save_analysis",
@@ -155,7 +175,7 @@ def test_create_analysis_with_missing_fields(monkeypatch):
     def fake_save_analysis(session, raw_text, result):
         saved.append((raw_text, result))
 
-        return SimpleNamespace(id=test_id)
+        return saved_record(test_id, result)
 
     monkeypatch.setattr(
         "app.main.save_analysis",
@@ -257,6 +277,10 @@ def test_get_analysis(monkeypatch):
             )
         ],
         confidence=1.0,
+        review_candidates=[],
+        verdict="review",
+        review_required=True,
+        reason="Meeting point is missing.",
     )
 
     def fake_get_analysis(session, analysis_id):
@@ -324,6 +348,10 @@ def test_get_analysis_with_missing_fields(monkeypatch):
             ),
         ],
         confidence=1.0,
+        review_candidates=[],
+        verdict="review",
+        review_required=True,
+        reason="City and duration are missing.",
     )
 
     def fake_get_analysis(session, analysis_id):

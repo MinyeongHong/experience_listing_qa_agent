@@ -2,14 +2,14 @@
 
 An AI-assisted backend for identifying missing information and inconsistencies in tour and activity listings.
 
-The application extracts structured fields from unstructured listing text with Gemini, applies deterministic quality-assurance rules, and stores analysis results for later retrieval. A separate semantic-conflict classifier and evaluation workflow are implemented for experimentation; semantic classification is **not yet connected to the analysis API**.
+The application extracts structured fields from unstructured listing text with Gemini, applies deterministic QA and budgeted semantic inclusion/exclusion checks, and stores the combined verdict, issues, and pending review candidates for later retrieval. Evaluation workflows also run separately from the API.
 
 ## Current capabilities
 
 - **Structured extraction:** Gemini returns a Pydantic `Listing` from raw listing text.
 - **Missing-field checks:** Deterministic rules flag missing information, including city, duration, and meeting point.
 - **Consistency checks:** Deterministic rules identify issues such as exact matches between inclusions and exclusions.
-- **Persistence:** SQLAlchemy stores analyses and their issues in PostgreSQL.
+- **Persistence:** SQLAlchemy stores analyses, deterministic issues, and semantic review candidates in PostgreSQL in one transaction.
 - **Retrieval:** Analyses can be fetched by UUID.
 - **Error handling:** Extraction errors are mapped to HTTP 502, rate limits to 503, and timeouts to 504.
 - **Semantic evaluation:** A separate Gemini-based inclusion/exclusion classifier can be evaluated in live and replay modes.
@@ -32,7 +32,10 @@ Listing (Pydantic)
 Deterministic QA rules
        |
        v
-AnalysisResult + issues
+Semantic QA (default: up to 5 calls)
+       |
+       v
+determine_verdict (fail > review > pass)
        |
        v
 PostgreSQL (SQLAlchemy)
@@ -41,9 +44,7 @@ PostgreSQL (SQLAlchemy)
 GET /analyses/{analysis_id}
 ```
 
-The Gemini client is injected into `ListingExtractor`. The FastAPI application manages the client lifecycle, and tests can replace the extractor without making external API calls.
-
-The semantic classifier and its evaluation pipeline currently run separately from this API flow.
+The FastAPI application manages one Gemini client's lifecycle and injects it into both `ListingExtractor` and `GeminiSemanticClassifier`. Tests replace both dependencies to avoid external calls. GET returns stored results without rerunning either model.
 
 ## Tech stack
 
@@ -73,10 +74,18 @@ Create a `.env` file in the project root. Do not commit it.
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
+SEMANTIC_MAX_LLM_CALLS=5
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/DATABASE_NAME
 ```
 
 Replace the placeholder values with your own credentials and database details. `GEMINI_MODEL` is used by the evaluation runner and can also configure the API extractor; the API extractor has a default model if it is omitted.
+
+`SEMANTIC_MAX_LLM_CALLS` is a server-side non-negative integer, defaulting to 5
+classifier attempts per POST. Failed attempts consume budget; exact matches and
+duplicate pairs do not. `0` leaves all eligible pairs pending without semantic
+calls. Invalid values prevent application startup. The budget counts classifier
+attempts, not any retries inside the provider SDK, and does not apply to standalone
+evaluation runners.
 
 ### Prepare the database
 
@@ -98,7 +107,7 @@ Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
 
 ### `POST /analyses`
 
-Accepts **raw listing text** and returns an analysis with a generated ID, extracted fields, detected issues, and a confidence value.
+Accepts **raw listing text** and returns an analysis with a generated ID, extracted fields, deterministic issues, semantic review candidates, verdict, review_required, and reason. New analyses return `confidence: null`; the field is retained for compatibility and historical stored values can still be returned.
 
 Example request:
 
@@ -136,11 +145,30 @@ Example response structure (illustrative, not a guaranteed model output):
       "message": "An item appears in both inclusions and exclusions."
     }
   ],
-  "confidence": 1.0
+  "review_candidates": [],
+  "verdict": "fail",
+  "review_required": true,
+  "reason": "[CONTRADICTORY_INCLUSION] Lunch appears in both inclusions and exclusions. [MISSING_MEETING_POINT] Meeting point is missing.",
+  "confidence": null
 }
 ```
 
-The example shows the response shape; exact issue messages and extracted values depend on the implementation and input. The current confidence value is fixed in the API flow and should **not** be interpreted as a calibrated probability.
+The example shows the response shape; exact fields, messages, and semantic candidates depend on model output. Clients that previously required a numeric confidence must accept null.
+
+Clear deterministic contradictions produce `fail`; missing required information,
+zero price, and pending semantic candidates produce `review`; otherwise the verdict
+is `pass`. `review_required` is true for both fail and review. Possible semantic
+conflicts and uncertain decisions remain pending rather than becoming definite
+failures. Provider, connection, timeout, and response errors create pending
+`SEMANTIC_CLASSIFICATION_FAILED` candidates. Unchecked pairs after budget exhaustion
+create pending `SEMANTIC_BUDGET_EXHAUSTED` candidates. Extraction and deterministic
+results are preserved in both situations. A deterministic failure still takes
+precedence over a semantic failure. These QA verdicts return HTTP 200 when saving
+succeeds; extraction errors retain the HTTP behavior below.
+
+The API preserves the extracted Listing JSON for potential later processing.
+There is no semantic rerun endpoint. Database failures are not converted into a
+successful response.
 
 Extraction-related HTTP errors:
 
@@ -170,7 +198,7 @@ The extraction prompt distinguishes between explicit information and missing fie
 - **Tags:** Extract from explicit tags or category sections only.
 - **Inclusions/exclusions:** Preserve explicitly stated items and contradictions rather than silently correcting them.
 
-Deterministic rules report missing fields and known contradictions. Semantic similarity between differently worded inclusion and exclusion items is handled by a separate experimental classifier, not by the current API endpoint.
+Deterministic rules report missing fields and known contradictions. The API also runs the semantic classifier on remaining unique inclusion/exclusion pairs, within its call budget, and stores pending review candidates separately from deterministic issues.
 
 ## Extraction prompt injection evaluation
 
@@ -334,8 +362,8 @@ Tests use fake Gemini clients and FastAPI dependency overrides to avoid external
 
 ## Current limitations and next steps
 
-- Semantic conflict detection is evaluated separately and is not yet part of the POST analysis pipeline.
-- The API's `confidence` field is currently a fixed value rather than a measured or calibrated confidence score.
+- Semantic checks are sequential; the per-listing budget limits attempts but does not impose a total request timeout.
+- The API does not calculate a calibrated confidence score; new analyses return null.
 - Extraction depends on an external model, so responses can vary; factual accuracy and prompt-injection robustness require further evaluation.
 - Further dataset expansion and input-size safeguards remain future work.
 - Retry/idempotency behavior and post-commit failure handling may require additional hardening for production use.
