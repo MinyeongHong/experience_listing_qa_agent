@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, true
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -26,7 +26,17 @@ class AnalysisRecord(Base):
         nullable=False,
     )
 
-    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    verdict: Mapped[str] = mapped_column(
+        String(10), nullable=False, server_default="review"
+    )
+    review_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=true()
+    )
+    reason: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="Semantic QA has not been performed."
+    )
 
     status: Mapped[str] = mapped_column(
         String(30),
@@ -43,6 +53,12 @@ class AnalysisRecord(Base):
     issues: Mapped[list["IssueRecord"]] = relationship(
         back_populates="analysis",
         cascade="all, delete-orphan",
+    )
+
+    review_candidates: Mapped[list["ReviewCandidateRecord"]] = relationship(
+        back_populates="analysis",
+        cascade="all, delete-orphan",
+        order_by="ReviewCandidateRecord.position",
     )
 
 
@@ -67,4 +83,28 @@ class IssueRecord(Base):
 
     analysis: Mapped["AnalysisRecord"] = relationship(
         back_populates="issues",
+    )
+
+
+class ReviewCandidateRecord(Base):
+    __tablename__ = "review_candidates"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    analysis_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("analyses.id"), nullable=False, index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    code: Mapped[str] = mapped_column(String(100), nullable=False)
+    field: Mapped[str] = mapped_column(String(100), nullable=False)
+    included_item: Mapped[str] = mapped_column(Text, nullable=False)
+    excluded_item: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, server_default="pending"
+    )
+
+    analysis: Mapped["AnalysisRecord"] = relationship(
+        back_populates="review_candidates"
     )

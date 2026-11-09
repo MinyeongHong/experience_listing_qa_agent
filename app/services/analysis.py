@@ -1,4 +1,6 @@
-from app.domain.models import Issue, Listing
+from typing import Literal
+
+from app.domain.models import Issue, Listing, ReviewCandidate
 
 
 def normalize_text(value: str) -> str:
@@ -76,3 +78,31 @@ def analyze_listing(listing: Listing) -> list[Issue]:
         )
 
     return issues
+
+
+def determine_verdict(
+    issues: list[Issue],
+    review_candidates: list[ReviewCandidate],
+) -> tuple[Literal["pass", "review", "fail"], bool, str]:
+    """Combine QA evidence; unrecognized issues conservatively require review."""
+    fail_codes = {"CONTRADICTORY_INCLUSION", "DURATION_CONTRADICTION"}
+    failures = [issue for issue in issues if issue.code in fail_codes]
+    other_issues = [issue for issue in issues if issue.code not in fail_codes]
+    pending = [
+        candidate for candidate in review_candidates if candidate.status == "pending"
+    ]
+
+    reasons = [f"[{issue.code}] {issue.message}" for issue in failures + other_issues]
+    reasons.extend(
+        f"[{candidate.code}] {candidate.included_item} / {candidate.excluded_item}: {candidate.reason}"
+        for candidate in pending
+    )
+    verdict: Literal["pass", "review", "fail"] = (
+        "fail" if failures else "review" if reasons else "pass"
+    )
+    reason = (
+        " ".join(reasons)
+        if reasons
+        else "No deterministic issues or pending semantic review candidates."
+    )
+    return verdict, verdict != "pass", reason
