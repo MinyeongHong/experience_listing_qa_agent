@@ -74,7 +74,7 @@ Create a `.env` file in the project root. Do not commit it.
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key
 APP_API_KEY=your_private_application_api_key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 SEMANTIC_MAX_LLM_CALLS=5
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/DATABASE_NAME
 ```
@@ -112,6 +112,10 @@ Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
 
 ## Render free deployment
 
+Deployed service: <https://experience-listing-qa-agent.onrender.com>
+
+API documentation: <https://experience-listing-qa-agent.onrender.com/docs>
+
 The root `render.yaml` defines a free Python Web Service and free PostgreSQL in
 Frankfurt. This is a preview deployment: free web services sleep after inactivity,
 and free PostgreSQL expires after 30 days and has no backups. See
@@ -124,6 +128,8 @@ and free PostgreSQL expires after 30 days and has no backups. See
 2. Enter `GEMINI_API_KEY` and a separate, strong `APP_API_KEY` when prompted.
    Store these only as Render environment variables; do not add them to YAML,
    source files, or committed `.env` files. Missing keys prevent startup.
+   Set `GEMINI_MODEL=gemini-3.1-flash-lite` in the Web Service's Environment settings
+   to match the verified deployment; this model override is not defined in the Blueprint.
 3. Apply the Blueprint when ready to deploy. The build installs locked production
    dependencies; startup applies migrations before starting the API. A failed
    migration exits without launching Uvicorn. Check the deploy logs for migration
@@ -147,7 +153,13 @@ For manual Dashboard setup, create PostgreSQL first and use these settings for
 | `GEMINI_API_KEY` | Private Gemini key, entered in Environment |
 | `APP_API_KEY` | Private application key, entered in Environment |
 | `SEMANTIC_MAX_LLM_CALLS` | `5` (optional; non-negative integer) |
-| `GEMINI_MODEL` | Optional; defaults to `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` for the verified deployment |
+
+The deployed service selects `gemini-3.1-flash-lite` through Render's `GEMINI_MODEL`
+environment variable. The code default remains `gemini-2.5-flash` when the variable
+is unset. In this API project, generation requests to that default model returned
+HTTP 404 because of a model access restriction, even though it appeared in the
+model list. Configure the production override explicitly.
 
 Render supports the existing minor-version Python file and supplies uv when
 `uv.lock` is present. See [Python configuration](https://render.com/docs/python-version)
@@ -199,6 +211,35 @@ example below calls Gemini and persists data; run it only when those effects are
 intended, then GET the returned ID to verify persistence. `/health` checks DB
 connectivity only, so it does not validate Gemini credentials or migrated tables.
 Its server-side query timeout does not impose an overall network deadline.
+
+### Verified deployment and production API examples
+
+Deployment validation confirmed HTTP 200 for `GET /health`, `POST /analyses`, and
+`GET /analyses/{id}`. The analysis created by POST was persisted in PostgreSQL and
+returned unchanged by GET. `X-API-Key` authentication was also verified.
+Validation used one normal travel listing; Semantic QA contradiction-detection
+quality has **not** been verified by this deployment check.
+
+The following POST calls Gemini and saves an analysis. Replace the API key
+placeholder locally; never commit a real key. The request body uses the API's
+`text` field.
+
+```bash
+curl --fail-with-body --max-time 180 \
+  -X POST 'https://experience-listing-qa-agent.onrender.com/analyses' \
+  -H 'X-API-Key: YOUR_APP_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Barcelona Food Walking Tour in Barcelona. Duration: 2 hours. Price: EUR 35. Meet at the main entrance of La Boqueria Market. Includes a local guide and food tastings. Excludes hotel transfers."}'
+```
+
+Copy the `id` from the POST response and replace `ANALYSIS_ID` below to retrieve
+the stored result without another Gemini call:
+
+```bash
+curl --fail-with-body --max-time 120 \
+  -H 'X-API-Key: YOUR_APP_API_KEY' \
+  'https://experience-listing-qa-agent.onrender.com/analyses/ANALYSIS_ID'
+```
 
 ## API
 
