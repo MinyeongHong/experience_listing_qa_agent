@@ -217,8 +217,19 @@ Its server-side query timeout does not impose an overall network deadline.
 Deployment validation confirmed HTTP 200 for `GET /health`, `POST /analyses`, and
 `GET /analyses/{id}`. The analysis created by POST was persisted in PostgreSQL and
 returned unchanged by GET. `X-API-Key` authentication was also verified.
-Validation used one normal travel listing; Semantic QA contradiction-detection
-quality has **not** been verified by this deployment check.
+
+Production QA smoke tests covered the following three scenarios:
+
+| Scenario | Included / Excluded | HTTP | Issues | Review candidates | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| Normal listing | No conflicting items | 200 | `[]` | `[]` | `pass` |
+| Semantic conflict | Lunch at a local restaurant / All meals | 200 | `[]` | `POSSIBLE_INCLUSION_CONFLICT` (`pending`) | `review` |
+| Exact contradiction | Lunch / Lunch | 200 | `CONTRADICTORY_INCLUSION` | `[]` | `fail` |
+
+For the semantic conflict, Gemini provided a reason explaining the conflict.
+These checks confirm the observed behavior for one case per scenario, including
+one semantic conflict case. They do not establish overall Semantic QA accuracy
+or reliability across other listings or repeated model calls.
 
 The following POST calls Gemini and saves an analysis. Replace the API key
 placeholder locally; never commit a real key. The request body uses the API's
