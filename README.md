@@ -73,12 +73,19 @@ Create a `.env` file in the project root. Do not commit it.
 
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key
+APP_API_KEY=your_private_application_api_key
 GEMINI_MODEL=gemini-2.5-flash
 SEMANTIC_MAX_LLM_CALLS=5
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/DATABASE_NAME
 ```
 
 Replace the placeholder values with your own credentials and database details. `GEMINI_MODEL` is used by the evaluation runner and can also configure the API extractor; the API extractor has a default model if it is omitted.
+
+`APP_API_KEY` is required at startup and must be nonempty (whitespace-only values
+are rejected). It is separate from `GEMINI_API_KEY`. Supply it in the `X-API-Key`
+HTTP header for both analysis endpoints. Missing or incorrect request keys return
+HTTP 401 before extraction, semantic classification, or database access. Keep the
+key private and use HTTPS when sending it to a deployed service.
 
 `SEMANTIC_MAX_LLM_CALLS` is a server-side non-negative integer, defaulting to 5
 classifier attempts per POST. Failed attempts consume budget; exact matches and
@@ -113,6 +120,7 @@ Example request:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyses \
+  -H 'X-API-Key: YOUR_APP_API_KEY' \
   -H 'Content-Type: application/json' \
   -d '{"text":"Barcelona food walking tour. Duration: 2 hours. Price: €35. Includes a local guide and lunch. Excludes lunch and drinks."}'
 ```
@@ -183,8 +191,18 @@ Extraction-related HTTP errors:
 Returns a previously stored analysis by UUID. Returns `404` when the analysis does not exist.
 
 ```bash
-curl http://127.0.0.1:8000/analyses/12345678-1234-5678-1234-567812345678
+curl -H 'X-API-Key: YOUR_APP_API_KEY' http://127.0.0.1:8000/analyses/12345678-1234-5678-1234-567812345678
 ```
+
+### `GET /health`
+
+This endpoint does not require an API key header. It executes `SELECT 1` against
+`DATABASE_URL` using a separate unpooled connection with a 2-second connection
+timeout and a 2-second PostgreSQL statement timeout. It does not invoke Gemini or
+write database data. A successful check returns HTTP 200 and `{"status":"ok"}`;
+database failures return HTTP 503 with a generic message. This checks DB
+connectivity, not migration state or Gemini credentials. The application still
+requires its startup environment variables to be configured.
 
 ## Extraction and QA rules
 

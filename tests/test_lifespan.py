@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_gemini_client_lifecycle(monkeypatch):
+def test_gemini_client_lifecycle(monkeypatch, app_api_key):
     calls = []
 
     fake_client = SimpleNamespace(
@@ -29,7 +29,9 @@ def test_gemini_client_lifecycle(monkeypatch):
     assert calls == ["created", "closed"]
 
 
-def test_invalid_semantic_budget_closes_client_and_rejects_startup(monkeypatch):
+def test_invalid_semantic_budget_closes_client_and_rejects_startup(
+    monkeypatch, app_api_key
+):
     calls = []
     fake_client = SimpleNamespace(close=lambda: calls.append("closed"))
     monkeypatch.setattr("app.main.create_gemini_client", lambda: fake_client)

@@ -19,7 +19,7 @@ from app.services.review import SemanticClassificationError
 
 
 @pytest.fixture
-def semantic_api(monkeypatch):
+def semantic_api(monkeypatch, app_api_key):
     monkeypatch.delenv("SEMANTIC_MAX_LLM_CALLS", raising=False)
     listing = Listing(
         title="Tour",
@@ -59,16 +59,23 @@ def semantic_api(monkeypatch):
     main.app.dependency_overrides[main.get_listing_extractor] = lambda: extractor
     main.app.dependency_overrides[main.get_semantic_classifier] = lambda: classifier
     try:
-        yield TestClient(main.app), listing, extractor, classifier, persistence
+        yield (
+            TestClient(main.app, headers={"X-API-Key": app_api_key}),
+            listing,
+            extractor,
+            classifier,
+            persistence,
+        )
     finally:
         main.app.dependency_overrides.clear()
 
 
-def test_semantic_no_conflict_passes_and_post_matches_get(semantic_api):
+def test_semantic_no_conflict_passes_and_post_matches_get(semantic_api, app_api_key):
     client, listing, _, classifier, persistence = semantic_api
     response = client.post("/analyses", json={"text": "Source listing"})
     assert response.status_code == 200
     data = response.json()
+    assert app_api_key not in response.text
     assert data["verdict"] == "pass"
     assert data["review_required"] is False
     assert data["review_candidates"] == []

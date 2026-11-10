@@ -16,7 +16,7 @@ from app.services.extraction import (
 
 
 @pytest.fixture(autouse=True)
-def clear_dependency_overrides():
+def clear_dependency_overrides(app_api_key):
     def fake_get_db():
         yield SimpleNamespace()
 
@@ -26,8 +26,10 @@ def clear_dependency_overrides():
         verdict="no_conflict", reason="Different services"
     )
     app.dependency_overrides[get_semantic_classifier] = lambda: classifier
+    client.headers["X-API-Key"] = app_api_key
     yield
     app.dependency_overrides.clear()
+    client.headers.pop("X-API-Key", None)
 
 
 client = TestClient(app)

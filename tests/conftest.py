@@ -13,6 +13,13 @@ from app.db.session import get_db
 from app.main import app
 
 
+@pytest.fixture
+def app_api_key(monkeypatch):
+    key = "test-app-api-key"
+    monkeypatch.setenv("APP_API_KEY", key)
+    return key
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     load_dotenv()
@@ -28,7 +35,9 @@ def test_engine():
     try:
         with engine.connect() as connection:
             if connection.scalar(text("SELECT current_database()")) != "listingqa_test":
-                raise RuntimeError("Integration tests must use listingqa_test database.")
+                raise RuntimeError(
+                    "Integration tests must use listingqa_test database."
+                )
         yield engine
     finally:
         engine.dispose()
@@ -44,15 +53,17 @@ def db_session(clean_test_db, test_engine) -> Generator[Session, None, None]:
 def integration_client(
     db_session: Session,
     monkeypatch,
+    app_api_key,
 ) -> Generator[TestClient, None, None]:
     monkeypatch.setattr("app.main.create_gemini_client", lambda: Mock())
+
     def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
 
     try:
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-API-Key": app_api_key}) as client:
             yield client
     finally:
         app.dependency_overrides.pop(get_db, None)

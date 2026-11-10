@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app.db.health import check_database_health
 from app.db.models import AnalysisRecord
 from app.db.session import get_db
 from app.domain.models import (
@@ -18,6 +19,7 @@ from app.domain.models import (
 )
 from app.integrations.gemini_classifier import GeminiSemanticClassifier
 from app.integrations.gemini_client import create_gemini_client
+from app.security import get_app_api_key, require_api_key
 from app.services.analysis import analyze_listing, determine_verdict
 from app.services.extraction import (
     ExtractionError,
@@ -31,6 +33,7 @@ from app.services.review import SemanticClassifier, find_review_candidates
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    get_app_api_key()
     client = create_gemini_client()
 
     app.state.gemini_client = client
@@ -92,7 +95,18 @@ def _analysis_response(record: AnalysisRecord) -> AnalysisResponse:
     )
 
 
-@app.post("/analyses", response_model=AnalysisResponse)
+@app.get("/health")
+def health() -> dict[str, str]:
+    if not check_database_health():
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    return {"status": "ok"}
+
+
+@app.post(
+    "/analyses",
+    response_model=AnalysisResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def create_analysis(
     request: AnalysisRequest,
     session: Annotated[Session, Depends(get_db)],
@@ -142,7 +156,11 @@ def create_analysis(
     return _analysis_response(record)
 
 
-@app.get("/analyses/{analysis_id}", response_model=AnalysisResponse)
+@app.get(
+    "/analyses/{analysis_id}",
+    response_model=AnalysisResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def read_analysis(
     analysis_id: UUID,
     session: Annotated[Session, Depends(get_db)],
