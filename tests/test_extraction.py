@@ -1,9 +1,11 @@
+import logging
 from types import SimpleNamespace
 from unittest.mock import Mock, PropertyMock
 
 import httpx
 import pytest
 from google.genai import _transformers, errors, types
+from pydantic import ValidationError
 
 from app.domain.models import Listing
 from app.services.extraction import (
@@ -13,6 +15,88 @@ from app.services.extraction import (
     ListingExtractor,
     RateLimitError,
 )
+
+
+@pytest.mark.parametrize("stage", ["generate_content", "parsed_response"])
+@pytest.mark.parametrize(
+    "error, expected_status",
+    [
+        (RuntimeError("private-response private-input private-key"), None),
+        (httpx.ReadTimeout("private-response private-input private-key"), None),
+        (errors.ClientError(403, {"message": "private-key"}, None), 403),
+        (errors.ClientError(429, {"message": "private-input"}, None), 429),
+        (errors.ServerError(503, {"message": "private-response"}, None), 503),
+    ],
+)
+def test_extraction_logs_only_safe_error_metadata(
+    caplog, monkeypatch, stage, error, expected_status
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "private-key")
+    client = Mock()
+    if stage == "generate_content":
+        client.models.generate_content.side_effect = error
+    else:
+        response = Mock()
+        type(response).parsed = PropertyMock(side_effect=error)
+        client.models.generate_content.return_value = response
+
+    with (
+        caplog.at_level(logging.WARNING, logger="app.services.extraction"),
+        pytest.raises(ExtractionError),
+    ):
+        ListingExtractor(client, "test-model").extract("private-input")
+
+    records = [r for r in caplog.records if r.name == "app.services.extraction"]
+    assert len(records) == 1
+    assert records[0].getMessage() == (
+        f"Extraction failed: stage={stage} exception_class={type(error).__name__} "
+        f"provider_status_code={expected_status}"
+    )
+    assert records[0].exc_info is None
+    assert records[0].stack_info is None
+    for secret in ("private-key", "private-input", "private-response"):
+        assert secret not in caplog.text
+        assert secret not in repr(records[0].__dict__)
+
+
+@pytest.mark.parametrize("stage", ["generate_content", "parsed_response"])
+def test_extraction_validation_error_diagnostics_omit_values(caplog, stage):
+    with pytest.raises(ValidationError) as validation:
+        Listing(title="Tour", duration_mentions=["private-input"])
+    client = Mock()
+    if stage == "generate_content":
+        client.models.generate_content.side_effect = validation.value
+    else:
+        response = Mock()
+        type(response).parsed = PropertyMock(side_effect=validation.value)
+        client.models.generate_content.return_value = response
+
+    with (
+        caplog.at_level(logging.WARNING, logger="app.services.extraction"),
+        pytest.raises(ExtractionError),
+    ):
+        ListingExtractor(client, "test-model").extract("private-input")
+
+    assert f"stage={stage} exception_class=ValidationError" in caplog.text
+    assert "private-input" not in caplog.text
+    assert "Input should" not in caplog.text
+    assert all(record.exc_info is None for record in caplog.records)
+
+
+def test_extraction_invalid_parsed_response_logs_metadata_only(caplog):
+    client = Mock()
+    client.models.generate_content.return_value = SimpleNamespace(
+        parsed={"private-response": "private-key"}
+    )
+    with (
+        caplog.at_level(logging.WARNING, logger="app.services.extraction"),
+        pytest.raises(ExtractionError),
+    ):
+        ListingExtractor(client, "test-model").extract("private-input")
+
+    assert "stage=parsed_response exception_class=ExtractionError" in caplog.text
+    for secret in ("private-response", "private-key", "private-input"):
+        assert secret not in caplog.text
 
 
 def test_extraction_schema_converts_with_installed_gemini_sdk():

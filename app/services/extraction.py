@@ -1,9 +1,12 @@
-from typing import Any
+import logging
+from typing import Any, Literal
 
 import httpx
 from google.genai import errors, types
 
 from app.domain.models import Listing
+
+logger = logging.getLogger(__name__)
 
 EXTRACTION_PROMPT = """
     You are an information extraction assistant for travel experience listings.
@@ -80,6 +83,25 @@ class ExtractionTimeoutError(ExtractionError):
     pass
 
 
+def _log_extraction_failure(
+    stage: Literal["generate_content", "parsed_response"], exc: Exception
+) -> None:
+    # Never format the exception: SDK/validation messages can include input data.
+    status = None
+    if (
+        isinstance(exc, errors.APIError)
+        and type(exc.code) is int
+        and 100 <= exc.code <= 599
+    ):
+        status = exc.code
+    logger.warning(
+        "Extraction failed: stage=%s exception_class=%s provider_status_code=%s",
+        stage,
+        type(exc).__name__,
+        status,
+    )
+
+
 class ListingExtractor:
     def __init__(self, client: Any, model: str):
         self.client = client
@@ -98,15 +120,18 @@ class ListingExtractor:
             )
 
         except (TimeoutError, httpx.TimeoutException) as exc:
+            _log_extraction_failure("generate_content", exc)
             raise ExtractionTimeoutError("Gemini request timed out.") from exc
 
         except errors.ClientError as exc:
+            _log_extraction_failure("generate_content", exc)
             if exc.code == 429:
                 raise RateLimitError("Gemini rate limit exceeded.") from exc
 
             raise ExtractionError("Failed to extract listing.") from exc
 
         except Exception as exc:
+            _log_extraction_failure("generate_content", exc)
             raise ExtractionError("Failed to extract listing.") from exc
 
         try:
@@ -114,9 +139,11 @@ class ListingExtractor:
             if not isinstance(parsed, Listing):
                 raise ExtractionError("Gemini returned an invalid structured response.")
             return parsed
-        except ExtractionError:
+        except ExtractionError as exc:
+            _log_extraction_failure("parsed_response", exc)
             raise
         except Exception as exc:
+            _log_extraction_failure("parsed_response", exc)
             raise ExtractionError(
                 "Gemini returned an invalid structured response."
             ) from exc
