@@ -3,7 +3,7 @@ from unittest.mock import Mock, PropertyMock
 
 import httpx
 import pytest
-from google.genai import errors
+from google.genai import _transformers, errors, types
 
 from app.domain.models import Listing
 from app.services.extraction import (
@@ -13,6 +13,55 @@ from app.services.extraction import (
     ListingExtractor,
     RateLimitError,
 )
+
+
+def test_extraction_schema_converts_with_installed_gemini_sdk():
+    client = Mock()
+    client.models.generate_content.return_value = SimpleNamespace(
+        parsed=Listing(title="Tour", duration_mentions=[1, 120])
+    )
+    ListingExtractor(client=client, model="test-model").extract("Tour listing")
+    config = client.models.generate_content.call_args.kwargs["config"]
+
+    # Use the SDK's real request-schema conversion without a client or network.
+    schema = _transformers.t_schema(None, config.response_schema)
+
+    assert isinstance(schema, types.Schema)
+    assert schema.properties["duration_mentions"].items.minimum == 1
+
+
+@pytest.mark.parametrize("duration", [0, -1, 1, 120])
+def test_sdk_parsing_validates_duration_mentions_as_listing(duration):
+    response = types.GenerateContentResponse._from_response(
+        response={
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": (
+                                    f'{{"title":"Tour",'
+                                    f'"duration_mentions":[{duration}]}}'
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        kwargs={"config": types.GenerateContentConfig(response_schema=Listing)},
+    )
+    client = Mock()
+    client.models.generate_content.return_value = response
+
+    extractor = ListingExtractor(client=client, model="test-model")
+    if duration <= 0:
+        with pytest.raises(ExtractionError, match="invalid structured response"):
+            extractor.extract("Tour listing")
+    else:
+        listing = extractor.extract("Tour listing")
+        assert isinstance(listing, Listing)
+        assert listing.duration_mentions == [duration]
 
 
 @pytest.mark.parametrize(

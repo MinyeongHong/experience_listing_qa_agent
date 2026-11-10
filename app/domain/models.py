@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, PositiveInt, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Listing(BaseModel):
@@ -13,7 +13,7 @@ class Listing(BaseModel):
     tags: list[str] = Field(default_factory=list)
     inclusions: list[str] = Field(default_factory=list)
     exclusions: list[str] = Field(default_factory=list)
-    duration_mentions: list[PositiveInt] = Field(default_factory=list)
+    duration_mentions: list[Annotated[int, Field(ge=1)]] = Field(default_factory=list)
 
     @field_validator("title")
     @classmethod
