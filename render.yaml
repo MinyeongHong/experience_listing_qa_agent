@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: experience-listing-qa-agent
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: uv sync --locked --no-dev
+    startCommand: >-
+      .venv/bin/alembic upgrade head &&
+      exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "$PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: experience-listing-qa-db
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: APP_API_KEY
+        sync: false
+      - key: SEMANTIC_MAX_LLM_CALLS
+        value: "5"
+
+databases:
+  - name: experience-listing-qa-db
+    plan: free
+    region: frankfurt

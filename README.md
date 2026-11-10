@@ -110,6 +110,96 @@ uv run uvicorn app.main:app --reload
 
 Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
 
+## Render free deployment
+
+The root `render.yaml` defines a free Python Web Service and free PostgreSQL in
+Frankfurt. This is a preview deployment: free web services sleep after inactivity,
+and free PostgreSQL expires after 30 days and has no backups. See
+[Render free instance limits](https://render.com/docs/free).
+
+1. In Render Dashboard, select **New > Blueprint** and connect the repository and
+   intended branch. Review the two resources before creating them. If a free
+   PostgreSQL database already exists in the workspace, reuse it through the
+   manual setup below instead of creating another free database.
+2. Enter `GEMINI_API_KEY` and a separate, strong `APP_API_KEY` when prompted.
+   Store these only as Render environment variables; do not add them to YAML,
+   source files, or committed `.env` files. Missing keys prevent startup.
+3. Apply the Blueprint when ready to deploy. The build installs locked production
+   dependencies; startup applies migrations before starting the API. A failed
+   migration exits without launching Uvicorn. Check the deploy logs for migration
+   completion and a successful `/health` check.
+
+For manual Dashboard setup, create PostgreSQL first and use these settings for
+**New > Web Service**:
+
+| Setting | Value |
+| --- | --- |
+| Runtime | Python 3 |
+| Instance type | Free for both Web Service and PostgreSQL |
+| Region | Frankfurt for both resources (or change both together) |
+| Root directory | Repository root; leave blank |
+| Python | Existing `.python-version`: `3.12`; leave `PYTHON_VERSION` unset |
+| Build Command | `uv sync --locked --no-dev` |
+| Start Command | `.venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "$PORT"` |
+| Health Check Path | `/health` |
+| Pre-Deploy Command | Leave blank |
+| `DATABASE_URL` | PostgreSQL **Internal Database URL**, copied unchanged |
+| `GEMINI_API_KEY` | Private Gemini key, entered in Environment |
+| `APP_API_KEY` | Private application key, entered in Environment |
+| `SEMANTIC_MAX_LLM_CALLS` | `5` (optional; non-negative integer) |
+| `GEMINI_MODEL` | Optional; defaults to `gemini-2.5-flash` |
+
+Render supports the existing minor-version Python file and supplies uv when
+`uv.lock` is present. See [Python configuration](https://render.com/docs/python-version)
+and [build commands](https://render.com/docs/deploys). `--locked` rejects dependency
+metadata that disagrees with `uv.lock`; `--no-dev` excludes pytest and Ruff.
+The start command uses the built virtual environment directly, without resolving
+or installing dependencies again. Render supplies `PORT`; Uvicorn uses one worker
+and listens on `0.0.0.0`.
+
+The Blueprint's `connectionString` reference supplies the internal database URL;
+the API and Alembic both read `DATABASE_URL`. Keep the database and web service in
+the same region. Secret variables marked `sync: false` are requested during initial
+Blueprint creation; subsequent secret changes must be made in Dashboard Environment.
+See [Blueprint environment variables](https://render.com/docs/blueprint-spec).
+
+Free services cannot use a pre-deploy command, so migration runs on **every server
+start**, including wakeups and restarts. `alembic upgrade head` is a no-op once the
+database is current. Keep this deployment to one service instance; do not start
+concurrent deployments against the same database. Future migrations must remain
+compatible with the previous running version during a deploy. Do not run migrations
+in the build command. See [Render deployment stages](https://render.com/docs/deploys).
+
+### Smoke tests after deployment
+
+Run these manually after deployment. Set `BASE_URL` to the HTTPS service URL and
+provide your key through a local environment variable without committing it.
+The following checks do **not** invoke Gemini or write application data:
+
+```bash
+export BASE_URL='https://YOUR-SERVICE.onrender.com'
+read -r -s -p 'APP_API_KEY: ' APP_API_KEY; printf '\n'
+export APP_API_KEY
+
+# 200, {"status":"ok"}; cold starts can take about a minute.
+curl --fail-with-body --max-time 120 "$BASE_URL/health"
+
+# 401: no authentication; extraction must not run.
+curl --max-time 120 -i "$BASE_URL/analyses" \
+  -H 'Content-Type: application/json' -d '{"text":"Smoke test"}'
+
+# 404 for an absent UUID confirms authenticated DB retrieval.
+curl --max-time 120 -i \
+  -H "X-API-Key: $APP_API_KEY" \
+  "$BASE_URL/analyses/00000000-0000-0000-0000-000000000000"
+```
+
+Run the block in Bash (`read -p` syntax). For a full analysis smoke test, the POST
+example below calls Gemini and persists data; run it only when those effects are
+intended, then GET the returned ID to verify persistence. `/health` checks DB
+connectivity only, so it does not validate Gemini credentials or migrated tables.
+Its server-side query timeout does not impose an overall network deadline.
+
 ## API
 
 ### `POST /analyses`
