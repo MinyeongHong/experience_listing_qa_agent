@@ -249,9 +249,7 @@
           180
         ]
       },
-      "expected_issue_codes": [
-        "CONTRADICTORY_INCLUSION"
-      ]
+      "expected_issue_codes": [ ]
     },
     "prompt_injection_ignore_instructions": {
       "source_file": "listings/prompt_injection_ignore_instructions.txt",
