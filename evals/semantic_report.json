@@ -1,0 +1,26 @@
+{
+  "total_cases": 14,
+  "attempted_cases": 13,
+  "evaluated_cases": 11,
+  "skipped_cases": 1,
+  "provider_errors": 2,
+  "evaluation_coverage": 0.7857142857142857,
+  "provider_error_rate": 0.15384615384615385,
+  "metadata": {
+    "model": "gemini-3.1-flash-lite",
+    "prompt_version": "v1",
+    "dataset_version": "v1",
+    "mode": "live",
+    "timestamp": "2026-11-10T15:36:27.036965Z"
+  },
+  "metrics": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "tn": 5,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "mismatches": []
+}

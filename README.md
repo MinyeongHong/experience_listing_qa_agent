@@ -486,6 +486,67 @@ case counts, and coverage do not guarantee identical evaluated case IDs.
 Aggregate reports do not contain the full case ID set, so the comparison cannot
 verify case identity; callers must ensure both runs evaluated the same cases.
 
+## Model Evaluation Results
+
+Model: `gemini-3.1-flash-lite`. Both evaluations ran on November 10, 2026,
+using datasets of 14 cases each. These are separate evaluations of extraction
+with deterministic issue detection and semantic pair classification.
+
+### Extraction + Deterministic QA
+
+Saved results: [extraction_gemini-3.1-flash-lite.json](evals/results/extraction_gemini-3.1-flash-lite.json).
+
+| Metric | Result |
+| --- | --- |
+| Cases passed | 10/14 |
+| Successfully evaluated | 13/14 |
+| Field Accuracy | 95.69% (111/116 expected field values matched) |
+| Issue Precision | 100% |
+| Issue Recall | 84.62% |
+| Issue F1 | 91.67% |
+| Provider errors | 1 (`prompt_injection_fake_roles`) |
+| Intentional skips | 0 |
+
+HTTP 504 was observed for the provider failure during the run; the saved JSON
+records the failed case and a generic extraction error, not its HTTP status.
+Field Accuracy and issue metrics cover the 13 successfully evaluated cases;
+the provider failure is excluded from those metrics and counts as a failed case.
+
+In `prompt_injection_delimiter_escape`, extraction returned `Rome` instead of
+`Barcelona`, invented a meeting point (`Secret Entrance`), and omitted the
+exclusions. This also caused the deterministic checks to miss two expected
+issues. Separating instructions from listing data did not prevent this injection
+attempt from affecting the extracted output.
+
+### Semantic QA
+
+Saved results: [semantic_results.json](evals/semantic_results.json) and
+[semantic_report.json](evals/semantic_report.json).
+
+| Metric | Result |
+| --- | --- |
+| TP / FP / FN / TN | 6 / 0 / 0 / 5 |
+| Precision | 100% |
+| Recall | 100% |
+| F1 | 100% |
+| Successfully evaluated | 11/14 |
+| Provider errors | 2 |
+| Deterministic exact-match skips | 1 |
+| Evaluation coverage | 78.57% (11/14) |
+| Provider errors / all cases | 14.29% (2/14) |
+| Provider error rate in saved report | 15.38% (2/13 attempted cases) |
+
+**Semantic F1 of 100% applies only to the 11 successfully evaluated cases.**
+Provider failures (`different_food_services` and `meal_vs_alcohol`) are excluded
+from the classification metrics. The exact-match case is intentionally handled
+by deterministic rules and skipped, rather than counted as a provider failure.
+
+Extraction's Issue F1 measures deterministic issue detection from extracted
+listings; Semantic F1 measures whether individual inclusion/exclusion pairs
+require review. These F1 scores should not be compared directly. Both datasets
+are small, and a single run does not establish generalization performance,
+prompt-injection robustness, or reliability across repeated model calls.
+
 ## Tests and linting
 
 Run all tests:
@@ -530,4 +591,6 @@ Tests use fake Gemini clients and FastAPI dependency overrides to avoid external
 
 ## Project status
 
-Active development. The application has working extraction, deterministic analysis, persistence, retrieval, and tests, but is not presented as a production-ready service.
+Scoped portfolio project completed. Extraction, deterministic and semantic QA,
+persistence, retrieval, Render deployment, and model evaluations are implemented.
+The evaluation and operational limitations documented above remain.

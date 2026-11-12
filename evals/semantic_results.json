@@ -1,0 +1,102 @@
+[
+  {
+    "id": "plural_conflict",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "The included item and excluded item are semantically identical, differing only by plurality."
+  },
+  {
+    "id": "different_food_services",
+    "status": "error",
+    "expected_review": false,
+    "error": "Gemini API request failed."
+  },
+  {
+    "id": "transport_scope",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "Hotel pickup is a specific form of transportation; excluding transportation generally implies the exclusion of pickup services."
+  },
+  {
+    "id": "unrelated_services",
+    "status": "success",
+    "expected_review": false,
+    "predicted_review": false,
+    "verdict": "no_conflict",
+    "reason": "Museum admission and hotel accommodation are distinct services related to different aspects of a trip."
+  },
+  {
+    "id": "meal_scope",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "Lunch is a type of meal, so excluding all meals contradicts the inclusion of lunch."
+  },
+  {
+    "id": "meal_vs_alcohol",
+    "status": "error",
+    "expected_review": false,
+    "error": "Gemini API request failed."
+  },
+  {
+    "id": "guide_vs_gratuities",
+    "status": "success",
+    "expected_review": false,
+    "predicted_review": false,
+    "verdict": "no_conflict",
+    "reason": "A guided tour is a service, while tips and gratuities are voluntary payments for service, which are distinct concepts."
+  },
+  {
+    "id": "admission_synonym",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "An entrance ticket and an admission fee refer to the same concept of paying for access to a venue or event."
+  },
+  {
+    "id": "pickup_vs_airport_transfer",
+    "status": "success",
+    "expected_review": false,
+    "predicted_review": false,
+    "verdict": "no_conflict",
+    "reason": "Hotel pickup typically refers to local transport to an activity, whereas airport transfer refers specifically to transport to or from an airport."
+  },
+  {
+    "id": "wine_vs_alcohol",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "Wine is an alcoholic beverage, so including wine tasting while excluding alcoholic beverages creates a direct contradiction."
+  },
+  {
+    "id": "guide_type_difference",
+    "status": "success",
+    "expected_review": false,
+    "predicted_review": false,
+    "verdict": "no_conflict",
+    "reason": "A tour guide is a human professional providing live commentary, whereas an audio guide is a pre-recorded electronic device; these are distinct methods of service delivery."
+  },
+  {
+    "id": "return_transport_synonym",
+    "status": "success",
+    "expected_review": true,
+    "predicted_review": true,
+    "verdict": "possible_conflict",
+    "reason": "A round-trip transport inherently includes a return transfer, making the exclusion directly contradictory to the inclusion."
+  },
+  {
+    "id": "admission_upgrade_difference",
+    "status": "success",
+    "expected_review": false,
+    "predicted_review": false,
+    "verdict": "no_conflict",
+    "reason": "Standard admission and VIP admission are distinct tiers of service that typically coexist rather than contradict each other."
+  }
+]
