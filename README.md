@@ -4,6 +4,11 @@ An AI-assisted backend for identifying missing information and inconsistencies i
 
 The application extracts structured fields from unstructured listing text with Gemini, applies deterministic QA and budgeted semantic inclusion/exclusion checks, and stores the combined verdict, issues, and pending review candidates for later retrieval. Evaluation workflows also run separately from the API.
 
+## Technical Case Study
+
+For architecture decisions, evaluation results, and failure analysis,
+see the [Technical Case Study](docs/technical_case_study.md).
+
 ## Current capabilities
 
 - **Structured extraction:** Gemini returns a Pydantic `Listing` from raw listing text.
